@@ -5,7 +5,7 @@ A growing bag of quality-of-life tools for **World of Warcraft: Forever**. It co
 ## Features
 
 - **Minimap button.** A purple star on the minimap edge. Left-click opens the options panel, drag it to move it around the minimap.
-- **Options panel.** Every module's settings as tick boxes. Settings are saved per account, so every character shares them.
+- **Options panel.** Every module's settings as tick boxes, plus button rows for one-off actions. Settings are saved per account, so every character shares them.
 - **Auto Sell.** Sells every grey item as soon as a vendor window opens and prints what it earned. Hold **Shift** while talking to a vendor to skip selling that visit. Keep and junk lists let you protect a grey item or force-sell a non-grey one.
 - **Fast Loot.** Grabs everything from a corpse the moment the loot is ready. Optionally leaves grey items behind; money and quest items are always taken. While it is on it takes over the game's own auto-loot setting (otherwise the client would loot every slot before the grey rule could apply) and restores it when turned off. Hold the game's auto-loot modifier key (Shift by default) when loot opens to get the normal loot window instead.
 - **Pet Attack.** Sends your pet at the target the moment you start casting a damage spell, so a Voidwalker is already running in while Corruption is still on the cast bar. Every pet command (attack, assist, stances) is protected on this client and cannot be called by an addon, so this works through macros: tick the option and MooseMode writes one macro per damage spell in your spellbook (`#showtooltip`, `/petattack`, `/cast`), and you drag those onto your bars in place of the spells. It never overwrites a macro it did not create, and turning the option off leaves the macros alone.
@@ -14,6 +14,7 @@ A growing bag of quality-of-life tools for **World of Warcraft: Forever**. It co
 - **Quest Rewards.** When a quest lets you choose a reward, each choice shows its vendor sell value in gold text on the button and the most valuable one gets a gold border (ties all get it). Works in the hand-in window and in the quest log and map details, since Blizzard draws them all through the same reward frame. Prices the client has not seen yet fill in a moment later.
 - **Auto Repair.** Repairs all your gear as soon as a vendor that can repair opens, and prints the cost. Optionally pays from the guild bank when your rank allows it. Warns you if you cannot afford it. Hold **Shift** while talking to the vendor to skip.
 - **One Bag.** Shows every bag as a single window, Bagnon/Baganator style. It switches on the client's own combined-bag mode rather than drawing its own bag frame, so clicking to use items, dragging, shift-linking, selling to vendors and using items in combat all keep working on Blizzard's secure item buttons, and the built-in Clean Up sort keeps working too. Optional sub-options run the sort automatically each time the bag opens, or make it pack items from the last slot. The setting is per account; the client-side switch is per character, so it is re-applied at every login to match.
+- **Graphics.** An **Apply** button sets every graphics slider to its maximum (view distance, environment and ground detail, shadows, liquid, particles, spell density, SSAO, depth and compute effects, outlines, texture resolution and filtering, physics, lighting, glow, weather, MSAA and CMAA anti-aliasing, and the same for the raid profile) after snapshotting what you had, and **Restore** puts that snapshot back exactly. Anti-aliasing and texture resolution only take effect after restarting the game; the addon says so when they change. View distance and shadows are the two heaviest on frame rate, so lower those in the game's settings if it stutters. A tick re-applies the preset every login. Separate ticks push the camera zoom-out past the settings slider (per character, re-applied at login) and nudge contrast up for more vivid colours.
 - **Beta Client.** Hides the floating "Issue Reporter" widget (the blue beetle button) that the beta client parks on screen. Bug report and survey popups still work, and `/ptr` still opens the reporter. Does nothing on a client that has no issue reporter.
 
 ## Install
@@ -50,6 +51,8 @@ Then start the game, click **AddOns** on the character select screen and make su
 | `/mm now` | Sell junk at the vendor that is currently open |
 | `/mm repair` | Repair all gear at the vendor that is currently open, whatever the option says |
 | `/mm cleanup` (or `/mm sort`) | Sort your bags now with Blizzard's cleanup |
+| `/mm ultra` | Apply the ultra graphics preset now |
+| `/mm ultra restore` | Put back the graphics settings saved before the preset was applied |
 | `/mm questdebug` | Toggle quest debug logging: every quest event, what the NPC offered and each decision, in chat |
 | `/mm petmacros` | Build or refresh the pet-attack macros now, whatever the option says |
 | `/mm petmacro <Spell Name>` | Build or refresh a single pet-attack macro for that spell, no damage-spell check |
@@ -80,6 +83,10 @@ Then start the game, click **AddOns** on the character select screen and make su
 | One Bag | Combine bags into one window | on |
 | One Bag | ↳ Sort bags on open (at most once every 2 s, never in combat) | off |
 | One Bag | ↳ Sort from the last slot | off |
+| Graphics | Ultra graphics preset (Apply / Restore buttons) | – |
+| Graphics | Re-apply ultra at login | off |
+| Graphics | Max camera zoom distance | on |
+| Graphics | Vivid colours | off |
 | Beta Client | Hide Issue Reporter button | on |
 
 ## Layout
@@ -97,6 +104,7 @@ MooseMode/
     QuestRewards.lua    vendor value and best-choice highlight on quest rewards
     AutoRepair.lua      gear repair at vendors
     OneBag.lua          combined bag window and bag cleanup
+    Graphics.lua        ultra graphics preset, camera zoom, vivid colours
     BetaTweaks.lua      beta client fixes (hide the Issue Reporter)
 ```
 
