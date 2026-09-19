@@ -8,6 +8,7 @@ A growing bag of quality-of-life tools for **World of Warcraft: Forever**. It co
 - **Options panel.** Every module's settings as tick boxes. Settings are saved per account, so every character shares them.
 - **Auto Sell.** Sells every grey item as soon as a vendor window opens and prints what it earned. Hold **Shift** while talking to a vendor to skip selling that visit. Keep and junk lists let you protect a grey item or force-sell a non-grey one.
 - **Fast Loot.** Grabs everything from a corpse the moment the loot is ready.
+- **Pet Attack.** Sends your pet at the target the moment you start casting a damage spell, so a Voidwalker is already running in while Corruption is still on the cast bar. Every pet command (attack, assist, stances) is protected on this client and cannot be called by an addon, so this works through macros: tick the option and MooseMode writes one macro per damage spell in your spellbook (`#showtooltip`, `/petattack`, `/cast`), and you drag those onto your bars in place of the spells. It never overwrites a macro it did not create, and turning the option off leaves the macros alone.
 - **Auto Quest.** Accepts quests automatically from quest givers, quest lists and gossip windows, hands in completed quests, and picks up the follow-ups that unlock. Low-level quests are skipped unless you tick the sub-option: a quest counts as low level when the client flags it trivial or its level is at or below your grey threshold, and a second sub-option extends that to anything below your level. The debug option logs each quest's level, your level and the grey threshold so you can see why a quest was skipped. If a hand-in offers more than one reward to choose from, the window stays open so you can pick. Also picks the gossip option for you when an NPC offers exactly one and no quests. Hold **Shift** while talking to an NPC to skip all of it.
 - **Auto Repair.** Repairs all your gear as soon as a vendor that can repair opens, and prints the cost. Optionally pays from the guild bank when your rank allows it. Warns you if you cannot afford it. Hold **Shift** while talking to the vendor to skip.
 - **One Bag.** Shows every bag as a single window, Bagnon/Baganator style. It switches on the client's own combined-bag mode rather than drawing its own bag frame, so clicking to use items, dragging, shift-linking, selling to vendors and using items in combat all keep working on Blizzard's secure item buttons, and the built-in Clean Up sort keeps working too. Optional sub-options run the sort automatically each time the bag opens, or make it pack items from the last slot. The setting is per account; the client-side switch is per character, so it is re-applied at every login to match.
@@ -48,6 +49,8 @@ Then start the game, click **AddOns** on the character select screen and make su
 | `/mm repair` | Repair all gear at the vendor that is currently open, whatever the option says |
 | `/mm cleanup` (or `/mm sort`) | Sort your bags now with Blizzard's cleanup |
 | `/mm questdebug` | Toggle quest debug logging: every quest event, what the NPC offered and each decision, in chat |
+| `/mm petmacros` | Build or refresh the pet-attack macros now, whatever the option says |
+| `/mm petmacro <Spell Name>` | Build or refresh a single pet-attack macro for that spell, no damage-spell check |
 
 ## Options
 
@@ -57,6 +60,8 @@ Then start the game, click **AddOns** on the character select screen and make su
 | Auto Sell | Show sale summary in chat | on |
 | Auto Sell | Use Blizzard sell-all (ignores lists) | off |
 | Fast Loot | Loot everything instantly | on |
+| Pet Attack | Pet-attack macros for damage spells | off |
+| Pet Attack | ↳ Only on pet classes (Hunter, Warlock) | on |
 | Auto Quest | Accept quests | on |
 | Auto Quest | ↳ Include low-level quests | off |
 | Auto Quest | ↳ Also skip quests below my level (no effect while low-level quests are included) | off |
@@ -80,6 +85,7 @@ MooseMode/
   Modules/
     AutoSell.lua        vendor junk selling
     FastLoot.lua        fast corpse looting
+    PetAttack.lua       /petattack macros for damage spells
     AutoQuest.lua       quest accepting, hand-ins and gossip automation
     AutoRepair.lua      gear repair at vendors
     OneBag.lua          combined bag window and bag cleanup
