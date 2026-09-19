@@ -4,7 +4,7 @@ A growing bag of quality-of-life tools for **World of Warcraft: Forever**. It co
 
 ## Features
 
-- **Minimap button.** A purple star on the minimap edge. Left-click opens the options panel, drag it to move it around the minimap.
+- **Minimap button.** A glossy purple orb with a white sparkle on the minimap edge, drawn from the addon's own icon file. Left-click opens the options panel, drag it to move it around the minimap. If your client draws the ring slightly off, `/mm icon <dx> <dy>` nudges the icon.
 - **Options panel.** Every module's settings as tick boxes, plus button rows for one-off actions. Settings are saved per account, so every character shares them.
 - **Auto Sell.** Sells every grey item as soon as a vendor window opens and prints what it earned. Hold **Shift** while talking to a vendor to skip selling that visit. Keep and junk lists let you protect a grey item or force-sell a non-grey one.
 - **Fast Loot.** Grabs everything from a corpse the moment the loot is ready. Optionally leaves grey items behind; money and quest items are always taken. While it is on it takes over the game's own auto-loot setting (otherwise the client would loot every slot before the grey rule could apply) and restores it when turned off. Hold the game's auto-loot modifier key (Shift by default) when loot opens to get the normal loot window instead.
@@ -44,6 +44,7 @@ Then start the game, click **AddOns** on the character select screen and make su
 |---|---|
 | `/mm` | Open or close the options panel |
 | `/mm minimap` | Hide or show the minimap button |
+| `/mm icon <dx> <dy>` | Nudge the minimap icon inside its ring (`/mm icon reset` to centre it again) |
 | `/mm help` | List every subcommand |
 | `/mm keep <item link>` | Never sell this item (toggle). Shift-click an item into the chat box to get a link. |
 | `/mm junk <item link>` | Always sell this item, any quality (toggle) |
@@ -111,6 +112,10 @@ MooseMode/
     OneBag.lua          combined bag window and bag cleanup
     Graphics.lua        ultra graphics preset, camera zoom, vivid colours
     BetaTweaks.lua      beta client fixes (hide the Issue Reporter)
+  media/
+    icon.tga            minimap icon (generated, do not hand-edit)
+tools/
+  make_icon.js          renders media/icon.tga and two PNG previews; run `node tools/make_icon.js`
 ```
 
 ### Adding a module
