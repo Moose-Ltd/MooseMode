@@ -1,6 +1,6 @@
 # MooseMode
 
-A growing bag of quality-of-life tools for **World of Warcraft: Forever**. It starts with automatic junk selling and fast looting, and is built so new features can be dropped in as modules.
+A growing bag of quality-of-life tools for **World of Warcraft: Forever**. It covers junk selling, fast looting, quest accepting, repairs and a single combined bag window, and is built so new features can be dropped in as modules.
 
 ## Features
 
@@ -10,6 +10,7 @@ A growing bag of quality-of-life tools for **World of Warcraft: Forever**. It st
 - **Fast Loot.** Grabs everything from a corpse the moment the loot is ready.
 - **Auto Quest.** Accepts quests automatically from quest givers, quest lists and gossip windows. Low-level (grey) quests are skipped unless you tick the sub-option. Also picks the gossip option for you when an NPC offers exactly one and no quests. Hold **Shift** while talking to an NPC to skip all of it.
 - **Auto Repair.** Repairs all your gear as soon as a vendor that can repair opens, and prints the cost. Optionally pays from the guild bank when your rank allows it. Warns you if you cannot afford it. Hold **Shift** while talking to the vendor to skip.
+- **One Bag.** Shows every bag as a single window, Bagnon/Baganator style. It switches on the client's own combined-bag mode rather than drawing its own bag frame, so clicking to use items, dragging, shift-linking, selling to vendors and using items in combat all keep working on Blizzard's secure item buttons, and the built-in Clean Up sort keeps working too. Optional sub-options run the sort automatically each time the bag opens, or make it pack items from the last slot. The setting is per account; the client-side switch is per character, so it is re-applied at every login to match.
 
 ## Install
 
@@ -44,6 +45,7 @@ Then start the game, click **AddOns** on the character select screen and make su
 | `/mm reset` | Clear both lists |
 | `/mm now` | Sell junk at the vendor that is currently open |
 | `/mm repair` | Repair all gear at the vendor that is currently open, whatever the option says |
+| `/mm cleanup` (or `/mm sort`) | Sort your bags now with Blizzard's cleanup |
 
 ## Options
 
@@ -59,6 +61,9 @@ Then start the game, click **AddOns** on the character select screen and make su
 | Auto Repair | Auto repair at vendors | on |
 | Auto Repair | ↳ Use guild bank funds when allowed (sub-option) | off |
 | Auto Repair | ↳ Show repair cost in chat (sub-option) | on |
+| One Bag | One bag: show all bags as a single window | on |
+| One Bag | ↳ Auto cleanup when the bag opens (sub-option, at most once every 2 s, never in combat) | off |
+| One Bag | ↳ Cleanup fills bags from the last slot (sub-option) | off |
 
 ## Layout
 
@@ -71,6 +76,7 @@ MooseMode/
     FastLoot.lua        fast corpse looting
     AutoQuest.lua       quest accepting and gossip automation
     AutoRepair.lua      gear repair at vendors
+    OneBag.lua          combined bag window and bag cleanup
 ```
 
 ### Adding a module
@@ -98,6 +104,6 @@ Read settings with `ns.db.yourThing`. Helpers on `ns`: `Print`, `IsSecret`, `Coi
 
 ## Notes on the Forever client
 
-Forever (interface `16001`) runs the Retail 12.x UI code, not the Classic Era code. The old Classic globals such as `GetItemInfo` and `GetContainerItemInfo` do not exist, so the addon only uses the modern `C_Container`, `C_Item`, `C_CurrencyInfo` and `C_Timer` namespaces. The TOC also lists `120105`, so the same files load on Retail.
+Forever (interface `16001`) runs the Retail 12.x UI code, not the Classic Era code. The old Classic globals such as `GetItemInfo` and `GetContainerItemInfo` do not exist, so the addon only uses the modern `C_Container`, `C_Item`, `C_CurrencyInfo`, `C_CVar` and `C_Timer` namespaces. The TOC also lists `120105`, so the same files load on Retail.
 
 Item quality and sell price are not secret values on this client, but every read is guarded anyway so the addon fails quietly rather than throwing if that ever changes.
