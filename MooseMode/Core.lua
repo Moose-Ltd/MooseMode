@@ -124,6 +124,109 @@ loader:SetScript("OnEvent", function(self, event, name)
 end)
 
 -------------------------------------------------------------------------------
+-- Minimap button (purple star)
+-------------------------------------------------------------------------------
+
+local minimapButton
+
+local function MinimapButton_UpdatePosition()
+    if not minimapButton or not ns.db then return end
+    local angle = math.rad(ns.db.minimap.angle or 220)
+    local radius = (Minimap:GetWidth() / 2) + 5
+    minimapButton:ClearAllPoints()
+    minimapButton:SetPoint("CENTER", Minimap, "CENTER", math.cos(angle) * radius, math.sin(angle) * radius)
+end
+
+local function MinimapButton_OnDragUpdate(self)
+    local mx, my = Minimap:GetCenter()
+    local px, py = GetCursorPosition()
+    local scale = Minimap:GetEffectiveScale()
+    px, py = px / scale, py / scale
+    ns.db.minimap.angle = math.deg(math.atan2(py - my, px - mx))
+    MinimapButton_UpdatePosition()
+end
+
+local function CreateMinimapButton()
+    if minimapButton then return minimapButton end
+
+    local b = CreateFrame("Button", "MooseModeMinimapButton", Minimap)
+    b:SetSize(32, 32)
+    b:SetFrameStrata("MEDIUM")
+    b:SetFrameLevel(8)
+    b:SetMovable(true)
+    b:EnableMouse(true)
+    b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+    b:RegisterForDrag("LeftButton")
+    b:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
+
+    local overlay = b:CreateTexture(nil, "OVERLAY")
+    overlay:SetSize(53, 53)
+    overlay:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
+    overlay:SetPoint("TOPLEFT")
+
+    local background = b:CreateTexture(nil, "BACKGROUND")
+    background:SetSize(20, 20)
+    background:SetTexture("Interface\\Minimap\\UI-Minimap-Background")
+    background:SetVertexColor(0.12, 0.05, 0.18)
+    background:SetPoint("TOPLEFT", 7, -5)
+
+    local icon = b:CreateTexture(nil, "ARTWORK")
+    icon:SetSize(17, 17)
+    icon:SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIcons")
+    icon:SetTexCoord(0, 0.25, 0, 0.25)          -- the star
+    icon:SetVertexColor(0.7, 0.25, 1.0)          -- dank purple
+    icon:SetPoint("TOPLEFT", 7, -6)
+    b.icon = icon
+
+    b:SetScript("OnDragStart", function(self)
+        self:SetScript("OnUpdate", MinimapButton_OnDragUpdate)
+        GameTooltip:Hide()
+    end)
+    b:SetScript("OnDragStop", function(self)
+        self:SetScript("OnUpdate", nil)
+    end)
+    b:SetScript("OnClick", function(self, button)
+        if button == "LeftButton" then
+            ns.ToggleOptions()
+        end
+    end)
+    b:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+        GameTooltip:AddLine("|cffb04cffMooseMode|r")
+        GameTooltip:AddLine("Left-click: options", 1, 1, 1)
+        GameTooltip:AddLine("Drag: move", 1, 1, 1)
+        GameTooltip:Show()
+    end)
+    b:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+    minimapButton = b
+    MinimapButton_UpdatePosition()
+    return b
+end
+
+function ns.GetMinimapButton()
+    return minimapButton
+end
+
+function ns.ToggleMinimap()
+    if not ns.db then return end
+    ns.db.minimap.hide = not ns.db.minimap.hide
+    if ns.db.minimap.hide then
+        if minimapButton then minimapButton:Hide() end
+        ns.Print("Minimap button hidden. Type /mm minimap to show it again.")
+    else
+        CreateMinimapButton():Show()
+        ns.Print("Minimap button shown.")
+    end
+end
+
+table.insert(ns.OnInitCallbacks, function()
+    if not ns.db.minimap.hide then
+        CreateMinimapButton():Show()
+    end
+end)
+
+-------------------------------------------------------------------------------
 -- Slash commands
 -------------------------------------------------------------------------------
 
