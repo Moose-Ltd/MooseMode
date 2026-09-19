@@ -151,6 +151,7 @@ end)
 ns:RegisterModule({
     key   = "fastLootModule",
     label = "Fast Loot",
+    group = "Loot",
     options = {
         { key = "fastLoot", label = "Loot everything instantly", default = true,
           tooltip = "Take every item the moment loot is ready, without waiting for the loot window. Takes over the game's auto-loot setting while on.",

@@ -266,6 +266,7 @@ end)
 ns:RegisterModule({
     key   = "graphicsModule",
     label = "Graphics",
+    group = "Interface",
     options = {
         { type = "button", label = "Ultra graphics preset", buttonText = "Apply",
           tooltip = "Sets every graphics slider to its highest value and view distance to maximum. Heaviest on frame rate: view distance and shadows; lower those two in the game's settings if it stutters. Anti-aliasing and texture resolution only change after a restart.",

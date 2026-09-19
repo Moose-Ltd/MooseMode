@@ -169,6 +169,7 @@ end)
 ns:RegisterModule({
     key   = "oneBagModule",
     label = "One Bag",
+    group = "Interface",
     options = {
         { key = "oneBag", label = "Combine bags into one window", default = true,
           tooltip = "Use the client's own combined-bag mode, so clicking, dragging and selling items all keep working. Applied to every character you log in with.",

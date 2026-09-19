@@ -67,6 +67,8 @@ end
 -- mod = {
 --   key      = "autoSell",            -- unique id
 --   label    = "Auto Sell",           -- header in the options panel
+--   group    = "Vendors",             -- heading the section sits under:
+--                                     -- Vendors, Quests, Loot, Combat, Interface
 --   options  = { { key, label, tooltip, default, onChange, parent }, ... },
 --              -- parent = "<optionKey>" makes this a sub-option: rendered
 --              -- indented under that option and greyed out while it is off;
@@ -277,10 +279,11 @@ end)
 -------------------------------------------------------------------------------
 -- Options dialog
 --
--- A centred settings window: title bar, two balanced columns of sections
--- (one per module, header + separator + rows), and a footer. Labels wrap
--- instead of truncating. Sub-options (opt.parent) indent and grey out with
--- their parent. Everything persists per account through ns.db.
+-- A centred settings window: title bar, two balanced columns of groups
+-- (Vendors, Quests, Loot, Combat, Interface; each holding its modules'
+-- sections: header + separator + rows), and a footer. Labels wrap instead
+-- of truncating. Sub-options (opt.parent) indent and grey out with their
+-- parent. Everything persists per account through ns.db.
 -------------------------------------------------------------------------------
 
 local DIALOG_WIDTH    = 640
@@ -303,6 +306,13 @@ local CHOICE_LABEL_INSET = 4   -- lines choice labels up with checkbox labels
 local BORDER_INSET    = 4
 local MAX_SCREEN_FRAC = 0.8
 local SCROLL_STEP     = 40
+
+local GROUP_ORDER        = { "Vendors", "Quests", "Loot", "Combat", "Interface" }
+local GROUP_OTHER        = "Other"
+local GROUP_HEADER_HEIGHT = 24
+local GROUP_RULE         = 2
+local GROUP_HEADER_GAP   = 10
+local GROUP_GAP          = 18
 
 local PURPLE_R, PURPLE_G, PURPLE_B = 0.69, 0.3, 1.0
 
@@ -718,33 +728,120 @@ local function CreateSection(parent, mod, width)
     return sec
 end
 
--- Lays every module section into the shorter of two columns. Returns the
--- body frame and its natural height.
+-- One group: a large uppercase purple heading, a 2px rule, then its module
+-- sections stacked with the usual section gap.
+local function CreateGroup(parent, name, mods, width)
+    local grp = CreateFrame("Frame", nil, parent)
+    grp:SetWidth(width)
+
+    local header = grp:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    header:SetPoint("TOPLEFT", 0, 0)
+    header:SetTextColor(PURPLE_R, PURPLE_G, PURPLE_B)
+    header:SetText(string.upper(name))
+
+    local rule = Solid(grp, "ARTWORK", PURPLE_R, PURPLE_G, PURPLE_B, 0.6)
+    rule:SetHeight(GROUP_RULE)
+    rule:SetPoint("TOPLEFT", 0, -GROUP_HEADER_HEIGHT)
+    rule:SetPoint("TOPRIGHT", 0, -GROUP_HEADER_HEIGHT)
+
+    local y = -(GROUP_HEADER_HEIGHT + GROUP_RULE + GROUP_HEADER_GAP)
+    for _, mod in ipairs(mods) do
+        local sec = CreateSection(grp, mod, width)
+        sec:SetPoint("TOPLEFT", 0, y)
+        y = y - sec:GetHeight() - SECTION_GAP
+    end
+    grp:SetHeight(-y - SECTION_GAP)
+    return grp
+end
+
+-- Modules with options, bucketed by group in display order: the fixed
+-- GROUP_ORDER first, then any group a module named that is not in it, then
+-- "Other" for modules that named none.
+local function GroupedModules()
+    local byName, names = {}, {}
+    local function bucket(name)
+        if not byName[name] then
+            byName[name] = {}
+            names[#names + 1] = name
+        end
+        return byName[name]
+    end
+    for _, name in ipairs(GROUP_ORDER) do bucket(name) end
+    local other = {}
+    for _, mod in ipairs(ns.modules) do
+        if #mod.options > 0 then
+            if mod.group then
+                table.insert(bucket(mod.group), mod)
+            else
+                other[#other + 1] = mod
+            end
+        end
+    end
+    if #other > 0 then
+        local b = bucket(GROUP_OTHER)
+        for _, mod in ipairs(other) do b[#b + 1] = mod end
+    end
+    local groups = {}
+    for _, name in ipairs(names) do
+        if #byName[name] > 0 then groups[#groups + 1] = { name = name, mods = byName[name] } end
+    end
+    return groups
+end
+
+-- Splits the groups (already built and measured) between two columns so the
+-- taller column is as short as possible, keeping display order within each
+-- column. Group counts are tiny, so every split is tried; the first group
+-- always leads the left column. Returns a list of column numbers.
+local function BalanceColumns(frames)
+    local n = #frames
+    if n == 0 then return {} end
+    local best, bestMax, bestLeft
+    local combos = math.min(2 ^ (n - 1), 512)
+    for mask = 0, combos - 1 do
+        local h = { 0, 0 }
+        local cols = { 1 }
+        h[1] = frames[1]:GetHeight() + GROUP_GAP
+        for i = 2, n do
+            local col = (math.floor(mask / 2 ^ (i - 2)) % 2 == 0) and 1 or 2
+            cols[i] = col
+            h[col] = h[col] + frames[i]:GetHeight() + GROUP_GAP
+        end
+        local tallest = math.max(h[1], h[2])
+        if not best or tallest < bestMax or (tallest == bestMax and h[1] >= bestLeft) then
+            best, bestMax, bestLeft = cols, tallest, h[1]
+        end
+    end
+    return best
+end
+
+-- Lays the groups into two balanced columns, keeping a group's sections
+-- together. Returns the body frame and its natural height.
 local function CreateBody(parent, bodyWidth)
     local body = CreateFrame("Frame", nil, parent)
     body:SetWidth(bodyWidth)
 
     local colWidth = (bodyWidth - COLUMN_GAP) / 2
+    local groups = GroupedModules()
+    local frames = {}
+    for i, g in ipairs(groups) do
+        frames[i] = CreateGroup(body, g.name, g.mods, colWidth)
+    end
+    local cols = BalanceColumns(frames)
     local heights = { 0, 0 }
-    local placed = 0
-    for _, mod in ipairs(ns.modules) do
-        if #mod.options > 0 then
-            local col = (heights[1] <= heights[2]) and 1 or 2
-            local sec = CreateSection(body, mod, colWidth)
-            sec:SetPoint("TOPLEFT", body, "TOPLEFT", (col - 1) * (colWidth + COLUMN_GAP), -heights[col])
-            heights[col] = heights[col] + sec:GetHeight() + SECTION_GAP
-            placed = placed + 1
-        end
+    for i, grp in ipairs(frames) do
+        local col = cols[i] or 1
+        grp:SetPoint("TOPLEFT", body, "TOPLEFT", (col - 1) * (colWidth + COLUMN_GAP), -heights[col])
+        heights[col] = heights[col] + grp:GetHeight() + GROUP_GAP
     end
 
     local height
-    if placed == 0 then
+    if #groups == 0 then
         local none = body:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
         none:SetPoint("TOPLEFT", 0, 0)
         none:SetText("No options registered.")
         height = ROW_MIN_HEIGHT
     else
-        height = math.max(heights[1], heights[2]) - SECTION_GAP
+        height = math.max(heights[1], heights[2]) - GROUP_GAP
     end
     body:SetHeight(height)
     return body, height

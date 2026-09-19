@@ -73,6 +73,7 @@ end)
 ns:RegisterModule({
     key   = "actionBarsModule",
     label = "Action Bars",
+    group = "Interface",
     options = {
         { key = "hideMacroNames", label = "Hide macro names on bars", default = true,
           tooltip = "Show only the icon on action bar buttons that hold macros.",

@@ -100,6 +100,7 @@ end)
 ns:RegisterModule({
     key   = "autoRepairModule",
     label = "Auto Repair",
+    group = "Vendors",
     options = {
         { key = "autoRepair", label = "Repair at vendors", default = true,
           tooltip = "Repair all your gear whenever a vendor that can repair opens." },

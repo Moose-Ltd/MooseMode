@@ -106,6 +106,7 @@ end)
 ns:RegisterModule({
     key   = "betaTweaksModule",
     label = "Beta Client",
+    group = "Interface",
     options = {
         { key = "hideIssueReporter", label = "Hide Issue Reporter button", default = true,
           tooltip = "Hide the floating blue beetle the beta client puts on screen. Bug reports and surveys still work, and /ptr still opens the reporter.",

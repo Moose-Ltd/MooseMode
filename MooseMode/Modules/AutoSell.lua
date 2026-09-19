@@ -219,6 +219,7 @@ end
 ns:RegisterModule({
     key   = "autoSellModule",
     label = "Auto Sell",
+    group = "Vendors",
     options = {
         { key = "autoSell", label = "Sell grey items at vendors", default = true,
           tooltip = "Sell every grey item as soon as a vendor window opens." },

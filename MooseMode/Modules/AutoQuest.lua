@@ -491,6 +491,7 @@ end)
 ns:RegisterModule({
     key   = "autoQuestModule",
     label = "Auto Quest",
+    group = "Quests",
     options = {
         { key = "autoQuest", label = "Accept quests", default = true,
           tooltip = "Accept quests from quest givers automatically. Grey quests are skipped unless you include them below." },

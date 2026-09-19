@@ -274,6 +274,7 @@ end)
 ns:RegisterModule({
     key   = "spellRanksModule",
     label = "Spell Ranks",
+    group = "Combat",
     options = {
         { key = "spellRanksUpgrade", label = "Keep bars on highest spell rank", default = true,
           tooltip = "When you learn a new rank, buttons holding the old rank are swapped for the new one. Runs out of combat.",

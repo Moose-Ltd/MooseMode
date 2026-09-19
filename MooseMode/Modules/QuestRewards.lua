@@ -379,6 +379,7 @@ InstallHooks()
 ns:RegisterModule({
     key   = "questRewardsModule",
     label = "Quest Rewards",
+    group = "Quests",
     options = {
         { key = "rewardValues", label = "Show vendor value on rewards", default = true,
           tooltip = "Prints each reward choice's sell price on its button.",

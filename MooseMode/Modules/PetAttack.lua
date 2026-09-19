@@ -228,6 +228,7 @@ end)
 ns:RegisterModule({
     key   = "petAttackModule",
     label = "Pet Attack",
+    group = "Combat",
     options = {
         { key = "petAttackMacros", label = "Pet-attack macros for damage spells", default = false,
           tooltip = "Create a macro for each of your damage spells that sends your pet at the target before casting. Drag them onto your bars in place of the spells. Turning this off leaves the macros in place; delete them from the macro window if you no longer want them.",
