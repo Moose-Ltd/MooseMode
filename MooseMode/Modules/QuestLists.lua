@@ -1,7 +1,8 @@
 -------------------------------------------------------------------------------
 -- MooseMode -- QuestLists
 --
--- Decorates the quest lines in NPC dialogs: the level in front of the name,
+-- Decorates the quest lines in NPC dialogs (and the title of the single-quest
+-- offer window): the level in front of the name,
 -- the name in the game's own difficulty colour, "(complete)" in gold on
 -- hand-ins that are ready, and a small grey "skipped: green" style tag on
 -- quests Auto Quest chose to leave for you. Gossip option lines ("I need
@@ -28,6 +29,14 @@
 -- decorated after QuestFrameGreetingPanel_OnShow via hooksecurefunc, walking
 -- the pool. A pass on GOSSIP_SHOW / QUEST_GREETING / QUEST_LOG_UPDATE
 -- (0.05 s later) is the backstop for both.
+--   * Quest detail window (Mainline/QuestInfo.lua): when an NPC has a single
+--     quest the client skips the list and opens QuestFrameDetailPanel.
+--     QuestInfo_ShowTitle() (line 148) writes QuestInfoTitleHeader:SetText
+--     (GetTitleText()); QuestInfoFrame.questLog is nil for the NPC offer and
+--     true for the quest log / map views (lines 50, 1111-1154). The header is
+--     decorated after hooksecurefunc("QuestInfo_ShowTitle") and on
+--     QUEST_DETAIL, NPC offers only, rebuilt from GetTitleText() so a
+--     follow-up quest in the same panel is re-read, never decorated twice.
 --
 -- The original title is kept on the button (MooseOriginalText) and the
 -- text is always rebuilt from it, so nothing is decorated twice.
@@ -265,6 +274,29 @@ local function DecorateGreeting()
 end
 
 -------------------------------------------------------------------------------
+-- Quest detail window (single-quest NPC offer)
+-------------------------------------------------------------------------------
+
+local function DetailOfferShown()
+    if not QuestFrameDetailPanel or not QuestFrameDetailPanel:IsShown() then return false end
+    if QuestInfoFrame and QuestInfoFrame.questLog then return false end
+    return QuestInfoTitleHeader and QuestInfoTitleHeader.SetText and true or false
+end
+
+local function DecorateDetail()
+    if applying or not Enabled() or not DetailOfferShown() then return end
+    local questID = GetQuestID and GetQuestID()
+    if not questID or questID == 0 or ns.IsSecret(questID) then return end
+    -- GetTitleText() is always the raw title, so a follow-up quest that
+    -- reuses the panel is picked up and nothing is decorated twice.
+    local title = GetTitleText and GetTitleText()
+    if not title or title == "" or ns.IsSecret(title) then return end
+    applying = true
+    QuestInfoTitleHeader:SetText(Decorate(title, questID, "available", nil))
+    applying = false
+end
+
+-------------------------------------------------------------------------------
 -- Triggers
 -------------------------------------------------------------------------------
 
@@ -273,6 +305,7 @@ local function RunPass()
     xpcall(function()
         DecorateGossip()
         DecorateGreeting()
+        DecorateDetail()
     end, function(err) ns.Print("QuestLists error: " .. tostring(err)) end)
 end
 
@@ -310,12 +343,36 @@ local function InstallHooks()
         GossipFrame:HookScript("OnHide", function() ClearStored(GossipButtons()) end)
         hooked.gossipHide = true
     end
+    if not hooked.detailTitle and type(QuestInfo_ShowTitle) == "function" then
+        hooksecurefunc("QuestInfo_ShowTitle", function()
+            if applying then return end
+            xpcall(DecorateDetail, function(err) ns.Print("QuestLists error: " .. tostring(err)) end)
+        end)
+        hooked.detailTitle = true
+    end
+    if not hooked.detailHide and QuestFrameDetailPanel and QuestFrameDetailPanel.HookScript then
+        -- Blizzard rewrites the header from GetTitleText() on every show, so
+        -- nothing needs restoring; the hook only exists so a stale decorated
+        -- title is never left in the shared header for the quest log view.
+        QuestFrameDetailPanel:HookScript("OnHide", function()
+            if QuestInfoTitleHeader and GetTitleText then
+                local raw = GetTitleText()
+                if type(raw) == "string" and not ns.IsSecret(raw) then
+                    applying = true
+                    QuestInfoTitleHeader:SetText(raw)
+                    applying = false
+                end
+            end
+        end)
+        hooked.detailHide = true
+    end
 end
 
 SafeRegister(frame, "ADDON_LOADED")
 SafeRegister(frame, "PLAYER_LOGIN")
 SafeRegister(frame, "GOSSIP_SHOW")
 SafeRegister(frame, "QUEST_GREETING")
+SafeRegister(frame, "QUEST_DETAIL")
 SafeRegister(frame, "QUEST_LOG_UPDATE")
 frame:SetScript("OnEvent", function(self, event)
     if event == "ADDON_LOADED" or event == "PLAYER_LOGIN" then
@@ -326,7 +383,7 @@ frame:SetScript("OnEvent", function(self, event)
     if event == "QUEST_LOG_UPDATE" then
         local gossipShown = GossipFrame and GossipFrame:IsShown()
         local greetingShown = QuestFrameGreetingPanel and QuestFrameGreetingPanel:IsShown()
-        if not gossipShown and not greetingShown then return end
+        if not gossipShown and not greetingShown and not DetailOfferShown() then return end
     end
     InstallHooks()
     SchedulePass()
@@ -342,7 +399,7 @@ ns:RegisterModule({
     group = "Quests",
     options = {
         { key = "questListColour", label = "Colour quests by difficulty", default = true,
-          tooltip = "Quest names in NPC dialogs take the game's difficulty colour, with the level in front.",
+          tooltip = "Quest names in NPC dialogs and the quest offer window take the game's difficulty colour, with the level in front.",
           onChange = function() SchedulePass() end },
         { key = "questListSkipTag", label = "Show why a quest was skipped", default = true, parent = "questListColour",
           tooltip = "Adds a small tag such as 'skipped: green' beside quests Auto Quest left for you.",
