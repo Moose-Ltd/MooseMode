@@ -11,6 +11,7 @@ A growing bag of quality-of-life tools for **World of Warcraft: Forever**. It co
 - **Auto Quest.** Accepts quests automatically from quest givers, quest lists and gossip windows, hands in completed quests, and picks up the follow-ups that unlock. Low-level (grey) quests are skipped unless you tick the sub-option. If a hand-in offers more than one reward to choose from, the window stays open so you can pick. Also picks the gossip option for you when an NPC offers exactly one and no quests. Hold **Shift** while talking to an NPC to skip all of it.
 - **Auto Repair.** Repairs all your gear as soon as a vendor that can repair opens, and prints the cost. Optionally pays from the guild bank when your rank allows it. Warns you if you cannot afford it. Hold **Shift** while talking to the vendor to skip.
 - **One Bag.** Shows every bag as a single window, Bagnon/Baganator style. It switches on the client's own combined-bag mode rather than drawing its own bag frame, so clicking to use items, dragging, shift-linking, selling to vendors and using items in combat all keep working on Blizzard's secure item buttons, and the built-in Clean Up sort keeps working too. Optional sub-options run the sort automatically each time the bag opens, or make it pack items from the last slot. The setting is per account; the client-side switch is per character, so it is re-applied at every login to match.
+- **Beta Client.** Hides the floating "Issue Reporter" widget (the blue beetle button) that the beta client parks on screen. Bug report and survey popups still work, and `/ptr` still opens the reporter. Does nothing on a client that has no issue reporter.
 
 ## Install
 
@@ -65,6 +66,7 @@ Then start the game, click **AddOns** on the character select screen and make su
 | One Bag | One bag: show all bags as a single window | on |
 | One Bag | ↳ Auto cleanup when the bag opens (sub-option, at most once every 2 s, never in combat) | off |
 | One Bag | ↳ Cleanup fills bags from the last slot (sub-option) | off |
+| Beta Client | Hide the beta Issue Reporter button | on |
 
 ## Layout
 
@@ -78,6 +80,7 @@ MooseMode/
     AutoQuest.lua       quest accepting, hand-ins and gossip automation
     AutoRepair.lua      gear repair at vendors
     OneBag.lua          combined bag window and bag cleanup
+    BetaTweaks.lua      beta client fixes (hide the Issue Reporter)
 ```
 
 ### Adding a module
