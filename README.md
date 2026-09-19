@@ -13,6 +13,7 @@ A growing bag of quality-of-life tools for **World of Warcraft: Forever**. It co
 - **Spell Ranks.** Forever has Vanilla-style spell ranks on the Retail client, so learning Demon Armor rank 3 leaves any button that holds rank 2 casting rank 2. This module swaps such buttons to the highest rank you know, out of combat, whenever you learn a spell and once at login, and reports each swap in chat. Name-based macros (`/cast Demon Armor`) already cast the top rank; this covers plain spell buttons dragged from the spellbook.
 - **Auto Quest.** Accepts quests automatically from quest givers, quest lists and gossip windows, hands in completed quests, and picks up the follow-ups that unlock. Low-level quests are skipped by default; the **Skip when** switch decides how low is low: **Grey only** (the client flags the quest trivial, or its level is at or below your grey threshold) or **Green and grey** (anything the game colours as easy, using the client's own difficulty colour). Untick **Skip low-level quests** to accept everything. The debug option logs each quest's level, your level, the grey threshold, its colour and the threshold in use so you can see why a quest was skipped. If a hand-in offers more than one reward to choose from, the window stays open so you can pick. Also picks the gossip option for you when an NPC offers exactly one and no quests. Hold **Shift** while talking to an NPC to skip all of it.
 - **Quest Rewards.** When a quest lets you choose a reward, each choice shows its vendor sell value in gold text on the button and the most valuable one gets a gold border (ties all get it). Works in the hand-in window and in the quest log and map details, since Blizzard draws them all through the same reward frame. Prices the client has not seen yet fill in a moment later.
+- **Quest Lists.** In NPC dialogs, quest names show their level in front and take the game's difficulty colour, so you see at a glance what is grey, green or yellow before clicking. Hand-ins that are ready turn gold with "(complete)". Quests that Auto Quest deliberately left for you carry a small grey tag such as "skipped: green", so nothing feels like it silently failed. Works in both the quest greeting list and gossip menus; gossip options that are not quests are left alone.
 - **Auto Repair.** Repairs all your gear as soon as a vendor that can repair opens, and prints the cost. Optionally pays from the guild bank when your rank allows it. Warns you if you cannot afford it. Hold **Shift** while talking to the vendor to skip.
 - **One Bag.** Shows every bag as a single window, Bagnon/Baganator style. It switches on the client's own combined-bag mode rather than drawing its own bag frame, so clicking to use items, dragging, shift-linking, selling to vendors and using items in combat all keep working on Blizzard's secure item buttons, and the built-in Clean Up sort keeps working too. Optional sub-options run the sort automatically each time the bag opens, or make it pack items from the last slot. The setting is per account; the client-side switch is per character, so it is re-applied at every login to match.
 - **Grey Sort.** After any bag cleanup (Blizzard's button, One Bag's sort-on-open, or `/mm cleanup`), moves every grey item into one block right beside the free slots, cheapest first, so the bag reads items, then greys, then empty space (or the mirror of that when "Sort from the last slot" is on). Moves are ordinary bag-to-bag swaps, one every fifth of a second, never in combat and never while a vendor or the bank is open. `/mm greysort` runs it on demand.
@@ -75,6 +76,8 @@ The dialog groups sections under five headings, in this order. `↳` marks a sub
 | Quests | Auto Quest | ↳ Debug log to chat | off |
 | Quests | Quest Rewards | Show vendor value on rewards | on |
 | Quests | Quest Rewards | ↳ Highlight the most valuable | on |
+| Quests | Quest Lists | Colour quests by difficulty | on |
+| Quests | Quest Lists | ↳ Show why a quest was skipped | on |
 | Loot | Fast Loot | Loot everything instantly | on |
 | Loot | Fast Loot | ↳ Leave grey items | off |
 | Combat | Pet Attack | Pet-attack macros for damage spells | off |
@@ -105,6 +108,7 @@ MooseMode/
     SpellRanks.lua      keep spell buttons on the highest known rank
     AutoQuest.lua       quest accepting, hand-ins and gossip automation
     QuestRewards.lua    vendor value and best-choice highlight on quest rewards
+    QuestLists.lua      level, difficulty colour and skip tags in NPC quest lists
     AutoRepair.lua      gear repair at vendors
     OneBag.lua          combined bag window and bag cleanup
     GreySort.lua        greys beside the free slots, cheapest first, after a cleanup
