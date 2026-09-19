@@ -242,15 +242,22 @@ end
 -------------------------------------------------------------------------------
 
 local frame = CreateFrame("Frame")
-frame:RegisterEvent("PLAYER_LOGIN")
-frame:RegisterEvent("LEARNED_SPELL_IN_TAB")
-frame:RegisterEvent("SPELLS_CHANGED")
-frame:RegisterEvent("PLAYER_REGEN_ENABLED")
+-- Event names differ between client lines: LEARNED_SPELL_IN_TAB was renamed
+-- LEARNED_SPELL_IN_SKILL_LINE in the Retail line that Forever runs. Register
+-- whichever exist; SPELLS_CHANGED alone is enough to catch new ranks.
+local function SafeRegister(f, event)
+    return pcall(f.RegisterEvent, f, event)
+end
+SafeRegister(frame, "PLAYER_LOGIN")
+SafeRegister(frame, "LEARNED_SPELL_IN_SKILL_LINE")
+SafeRegister(frame, "LEARNED_SPELL_IN_TAB")
+SafeRegister(frame, "SPELLS_CHANGED")
+SafeRegister(frame, "PLAYER_REGEN_ENABLED")
 frame:SetScript("OnEvent", function(self, event)
     if not ns.db then return end
     if event == "PLAYER_LOGIN" then
         ScheduleScan(LOGIN_DELAY, false)
-    elseif event == "LEARNED_SPELL_IN_TAB" or event == "SPELLS_CHANGED" then
+    elseif event == "LEARNED_SPELL_IN_SKILL_LINE" or event == "LEARNED_SPELL_IN_TAB" or event == "SPELLS_CHANGED" then
         if ns.db.spellRanksUpgrade then ScheduleScan(DEBOUNCE, false) end
     elseif event == "PLAYER_REGEN_ENABLED" and pendingCombat then
         pendingCombat = false
