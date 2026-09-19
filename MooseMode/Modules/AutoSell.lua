@@ -220,12 +220,12 @@ ns:RegisterModule({
     key   = "autoSellModule",
     label = "Auto Sell",
     options = {
-        { key = "autoSell", label = "Auto sell junk at vendors", default = true,
-          tooltip = "Sell every grey item as soon as a vendor window opens. Hold Shift while opening the vendor to skip." },
+        { key = "autoSell", label = "Sell grey items at vendors", default = true,
+          tooltip = "Sell every grey item as soon as a vendor window opens." },
         { key = "sellSummary", label = "Show sale summary in chat", default = true,
           tooltip = "Print how many items were sold and for how much." },
-        { key = "sellBlizzardFast", label = "Use Blizzard's sell-all-junk", default = false,
-          tooltip = "Use the client's built-in sell-all-junk instead of selling item by item. Faster, but ignores the keep and junk lists." },
+        { key = "sellBlizzardFast", label = "Use Blizzard sell-all (ignores lists)", default = false,
+          tooltip = "Use the client's own sell-all-junk instead of selling item by item. Faster, but your keep and junk lists are ignored." },
     },
     OnInit = function()
         ns.db.keep = ns.db.keep or {}

@@ -32,7 +32,7 @@ ns:RegisterModule({
     key   = "fastLootModule",
     label = "Fast Loot",
     options = {
-        { key = "fastLoot", label = "Fast loot corpses", default = true,
-          tooltip = "Loot every slot as soon as the loot is ready, skipping the loot window delay." },
+        { key = "fastLoot", label = "Loot everything instantly", default = true,
+          tooltip = "Take every item the moment loot is ready, without waiting for the loot window." },
     },
 })

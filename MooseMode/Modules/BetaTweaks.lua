@@ -107,8 +107,8 @@ ns:RegisterModule({
     key   = "betaTweaksModule",
     label = "Beta Client",
     options = {
-        { key = "hideIssueReporter", label = "Hide the beta Issue Reporter button", default = true,
-          tooltip = "Hides the floating Issue Reporter widget (the blue beetle) the beta client puts on screen. Bug report and survey popups still work; the /ptr command still opens the reporter.",
+        { key = "hideIssueReporter", label = "Hide Issue Reporter button", default = true,
+          tooltip = "Hide the floating blue beetle the beta client puts on screen. Bug reports and surveys still work, and /ptr still opens the reporter.",
           onChange = function(checked)
               if checked then
                   InstallHooks()
