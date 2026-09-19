@@ -334,13 +334,21 @@ local function Solid(parent, layer, r, g, b, a)
     return t
 end
 
-local function CreateCloseButton(parent)
-    local b = CreateFrame("Button", nil, parent)
-    b:SetSize(32, 32)
+-- Close button. Parented to the title bar and lifted well above it in frame
+-- level so the bar's drag region can never swallow the click, with a hit
+-- rect a few pixels larger than the artwork so the X is easy to land on.
+local function CreateCloseButton(titleBar, dialog)
+    local b = CreateFrame("Button", nil, titleBar)
+    b:SetSize(28, 28)
+    b:SetFrameLevel(titleBar:GetFrameLevel() + 5)
+    b:SetHitRectInsets(-6, -6, -6, -6)
     b:SetNormalTexture("Interface\\Buttons\\UI-Panel-MinimizeButton-Up")
     b:SetPushedTexture("Interface\\Buttons\\UI-Panel-MinimizeButton-Down")
     b:SetHighlightTexture("Interface\\Buttons\\UI-Panel-MinimizeButton-Highlight", "ADD")
-    b:SetScript("OnClick", function() parent:Hide() end)
+    local hl = b:GetHighlightTexture()
+    if hl then hl:SetVertexColor(1, 0.45, 0.45) end
+    b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+    b:SetScript("OnClick", function() dialog:Hide() end)
     return b
 end
 
@@ -559,8 +567,8 @@ local function BuildOptionsDialog()
     local version = AddonVersion()
     subtitle:SetText(version ~= "" and (version .. "   /mm or /moose") or "/mm or /moose")
 
-    local close = CreateCloseButton(f)
-    close:SetPoint("TOPRIGHT", titleBar, "TOPRIGHT", 2, 6)
+    local close = CreateCloseButton(titleBar, f)
+    close:SetPoint("TOPRIGHT", f, "TOPRIGHT", -6, -6)
 
     -- Body, scrolled only when it would not fit on screen.
     local bodyWidth = DIALOG_WIDTH - 2 * DIALOG_PAD
