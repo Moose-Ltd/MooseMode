@@ -12,6 +12,7 @@ Modules\AutoSell.lua
 Modules\FastLoot.lua
 Modules\PetAttack.lua
 Modules\ActionBars.lua
+Modules\SpellRanks.lua
 Modules\AutoQuest.lua
 Modules\QuestRewards.lua
 Modules\AutoRepair.lua
