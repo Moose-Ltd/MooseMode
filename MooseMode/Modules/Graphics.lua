@@ -208,20 +208,25 @@ end
 -- Vivid colours
 -------------------------------------------------------------------------------
 
-local VIVID = {
-    Contrast = "60",
-}
+-- Vivid raises contrast relative to whatever the player has, rather than to
+-- a fixed number: at least +15, never below 90, never above the maximum.
+local VIVID_CVAR   = "Contrast"
+local VIVID_BOOST  = 15
+local VIVID_FLOOR  = 90
+local VIVID_MAX    = 100
 
 local vividWarned = false
+
+local function VividTarget(current)
+    local cur = tonumber(current) or 50
+    local target = math.max(cur + VIVID_BOOST, VIVID_FLOOR)
+    return math.min(target, VIVID_MAX)
+end
 
 local function ApplyVivid(enabled, announce)
     local db = ns.db
     if not db then return end
-    local any = false
-    for name in pairs(VIVID) do
-        if CVarExists(name) then any = true end
-    end
-    if not any then
+    if not CVarExists(VIVID_CVAR) then
         if announce and not vividWarned then
             vividWarned = true
             ns.Print("This client has no Contrast setting; Vivid colours cannot be applied.")
@@ -229,24 +234,24 @@ local function ApplyVivid(enabled, announce)
         return
     end
 
+    local current = GetVar(VIVID_CVAR)
     if enabled then
-        if db.graphicsPrevVivid == nil then
-            local prev = {}
-            for name in pairs(VIVID) do
-                if CVarExists(name) then prev[name] = GetVar(name) end
-            end
-            db.graphicsPrevVivid = prev
+        -- Snapshot first so untick is always symmetric, even if the player
+        -- was already at or above the target.
+        if db.graphicsPrevVivid == nil and current ~= nil then
+            db.graphicsPrevVivid = { [VIVID_CVAR] = current }
         end
-        for name, value in pairs(VIVID) do
-            if CVarExists(name) and GetVar(name) ~= value then SetVar(name, value) end
+        local base = current
+        if db.graphicsPrevVivid and db.graphicsPrevVivid[VIVID_CVAR] then
+            base = db.graphicsPrevVivid[VIVID_CVAR]
         end
+        local target = tostring(VividTarget(base))
+        if current ~= target then SetVar(VIVID_CVAR, target) end
     else
         local prev = db.graphicsPrevVivid
         db.graphicsPrevVivid = nil
-        if prev then
-            for name, value in pairs(prev) do
-                if CVarExists(name) and GetVar(name) ~= value then SetVar(name, value) end
-            end
+        if prev and prev[VIVID_CVAR] ~= nil and current ~= prev[VIVID_CVAR] then
+            SetVar(VIVID_CVAR, prev[VIVID_CVAR])
         end
     end
 end
@@ -289,7 +294,7 @@ ns:RegisterModule({
           tooltip = "Lets you zoom the camera out further than the settings slider allows. Applied on every character.",
           onChange = function(checked) ApplyCamera(checked, true) end },
         { key = "graphicsVivid", label = "Vivid colours", default = false,
-          tooltip = "Slightly higher contrast. Purely taste; untick to return to what you had.",
+          tooltip = "Raises contrast noticeably. Untick to return to your previous value.",
           onChange = function(checked) ApplyVivid(checked, true) end },
     },
     OnInit = function()
