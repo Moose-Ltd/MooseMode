@@ -16,7 +16,7 @@ A growing bag of quality-of-life tools for **World of Warcraft: Forever**. It co
 - **Auto Repair.** Repairs all your gear as soon as a vendor that can repair opens, and prints the cost. Optionally pays from the guild bank when your rank allows it. Warns you if you cannot afford it. Hold **Shift** while talking to the vendor to skip.
 - **One Bag.** Shows every bag as a single window, Bagnon/Baganator style. It switches on the client's own combined-bag mode rather than drawing its own bag frame, so clicking to use items, dragging, shift-linking, selling to vendors and using items in combat all keep working on Blizzard's secure item buttons, and the built-in Clean Up sort keeps working too. Optional sub-options run the sort automatically each time the bag opens, or make it pack items from the last slot. The setting is per account; the client-side switch is per character, so it is re-applied at every login to match.
 - **Grey Sort.** After any bag cleanup (Blizzard's button, One Bag's sort-on-open, or `/mm cleanup`), moves every grey item into one block right beside the free slots, cheapest first, so the bag reads items, then greys, then empty space (or the mirror of that when "Sort from the last slot" is on). Moves are ordinary bag-to-bag swaps, one every fifth of a second, never in combat and never while a vendor or the bank is open. `/mm greysort` runs it on demand.
-- **Graphics.** An **Apply** button sets every graphics slider to its maximum (view distance, environment and ground detail, shadows, liquid, particles, spell density, SSAO, depth and compute effects, outlines, texture resolution and filtering, physics, lighting, glow, weather, MSAA and CMAA anti-aliasing, and the same for the raid profile) after snapshotting what you had, and **Restore** puts that snapshot back exactly. Anti-aliasing and texture resolution only take effect after restarting the game; the addon says so when they change. View distance and shadows are the two heaviest on frame rate, so lower those in the game's settings if it stutters. A tick re-applies the preset every login. Separate ticks push the camera zoom-out past the settings slider (per character, re-applied at login) and nudge contrast up for more vivid colours.
+- **Graphics.** Two ticks: one pushes the camera zoom-out past the settings slider (per character, re-applied at login), the other sets contrast to 75 for more vivid colours and puts your previous value back when unticked.
 - **Beta Client.** Hides the floating "Issue Reporter" widget (the blue beetle button) that the beta client parks on screen. Bug report and survey popups still work, and `/ptr` still opens the reporter. Does nothing on a client that has no issue reporter.
 
 ## Install
@@ -51,8 +51,6 @@ Then start the game, click **AddOns** on the character select screen and make su
 | `/mm repair` | Repair all gear at the vendor that is currently open, whatever the option says |
 | `/mm cleanup` (or `/mm sort`) | Sort your bags now with Blizzard's cleanup |
 | `/mm greysort` | Move grey items next to the free slots now, cheapest first |
-| `/mm ultra` | Apply the ultra graphics preset now |
-| `/mm ultra restore` | Put back the graphics settings saved before the preset was applied |
 | `/mm questdebug` | Toggle quest debug logging: every quest event, what the NPC offered and each decision, in chat |
 | `/mm petmacros` | Build or refresh the pet-attack macros now, whatever the option says |
 | `/mm petmacro <Spell Name>` | Build or refresh a single pet-attack macro for that spell, no damage-spell check |
@@ -89,8 +87,6 @@ The dialog groups sections under five headings, in this order. `↳` marks a sub
 | Interface | Grey Sort | Greys at the end, cheapest first | on |
 | Interface | Grey Sort | ↳ Report moves in chat | on |
 | Interface | Action Bars | Hide macro names on bars | on |
-| Interface | Graphics | Ultra graphics preset (Apply / Restore buttons) | – |
-| Interface | Graphics | Re-apply ultra at login | off |
 | Interface | Graphics | Max camera zoom distance | on |
 | Interface | Graphics | Vivid colours | off |
 | Interface | Beta Client | Hide Issue Reporter button | on |
@@ -112,7 +108,7 @@ MooseMode/
     AutoRepair.lua      gear repair at vendors
     OneBag.lua          combined bag window and bag cleanup
     GreySort.lua        greys beside the free slots, cheapest first, after a cleanup
-    Graphics.lua        ultra graphics preset, camera zoom, vivid colours
+    Graphics.lua        camera zoom, vivid colours
     BetaTweaks.lua      beta client fixes (hide the Issue Reporter)
   media/
     icon.tga            minimap icon (generated, do not hand-edit)
