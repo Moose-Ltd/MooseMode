@@ -69,10 +69,14 @@ end
 --   label    = "Auto Sell",           -- header in the options panel
 --   options  = { { key, label, tooltip, default, onChange, parent }, ... },
 --              -- parent = "<optionKey>" makes this a sub-option: rendered
---              -- indented under that option and greyed out while it is off
+--              -- indented under that option and greyed out while it is off;
+--              -- sub-options may themselves have sub-options
 --              -- { type = "button", label, buttonText, tooltip, onClick }
 --              -- is a one-off action row (no key, nothing saved); a second
 --              -- button with pair = true shares the previous button's row
+--              -- { type = "choice", key, label, tooltip, default, parent,
+--              --   values = { { value = "a", text = "A" }, ... }, onChange }
+--              -- is a segmented switch; ns.db[key] holds the chosen value
 --   OnInit   = function(mod) end,     -- called once ns.db exists (optional)
 --   commands = { sub = function(rest) end, ... },  -- /mm <sub> (optional)
 -- }
@@ -293,6 +297,9 @@ local LABEL_GAP       = 4
 local BUTTON_WIDTH    = 78
 local BUTTON_HEIGHT   = 22
 local BUTTON_GAP      = 6
+local CHOICE_HEIGHT   = 20
+local CHOICE_MIN_WIDTH = 60
+local CHOICE_LABEL_INSET = 4   -- lines choice labels up with checkbox labels
 local BORDER_INSET    = 4
 local MAX_SCREEN_FRAC = 0.8
 local SCROLL_STEP     = 40
@@ -300,14 +307,36 @@ local SCROLL_STEP     = 40
 local PURPLE_R, PURPLE_G, PURPLE_B = 0.69, 0.3, 1.0
 
 local optionsFrame
-local checkboxes = {}   -- CheckButtons, each with .option and .label
+local controls = {}     -- checkbox and choice controls, each with .option
+local optionByKey = {}  -- option key -> option, for walking parent chains
 
 -- A sub-option (opt.parent = "<optionKey>") is greyed out and unclickable
--- while its parent option is off.
-local function Checkbox_UpdateEnabled(cb)
-    local parent = cb.option.parent
-    if not parent then return end
-    if ns.db[parent] then
+-- while its parent option is off. Parents may nest, so every ancestor has
+-- to be on.
+local function AncestorsOn(opt)
+    local parent, guard = opt.parent, 0
+    while parent and guard < 8 do
+        if not ns.db[parent] then return false end
+        local p = optionByKey[parent]
+        parent = p and p.parent or nil
+        guard = guard + 1
+    end
+    return true
+end
+
+local function Control_UpdateEnabled(c)
+    if not c.option.parent then return end
+    c:SetEnabledState(AncestorsOn(c.option))
+end
+
+-- Any control below a toggled option may change state; re-evaluating every
+-- control is cheap and keeps grandchildren right too.
+local function Controls_UpdateEnabled()
+    for _, c in ipairs(controls) do Control_UpdateEnabled(c) end
+end
+
+local function Checkbox_SetEnabledState(cb, on)
+    if on then
         cb:Enable()
         cb.label:SetTextColor(1, 1, 1)
     else
@@ -316,15 +345,9 @@ local function Checkbox_UpdateEnabled(cb)
     end
 end
 
-local function Checkbox_UpdateChildren(parentKey)
-    for _, cb in ipairs(checkboxes) do
-        if cb.option.parent == parentKey then Checkbox_UpdateEnabled(cb) end
-    end
-end
-
 local function Checkbox_Refresh(cb)
     cb:SetChecked(ns.db[cb.option.key] and true or false)
-    Checkbox_UpdateEnabled(cb)
+    Control_UpdateEnabled(cb)
 end
 
 local function Checkbox_OnClick(self)
@@ -333,29 +356,37 @@ local function Checkbox_OnClick(self)
     if self.option.onChange then
         self.option.onChange(checked, self.option)
     end
-    Checkbox_UpdateChildren(self.option.key)
+    Controls_UpdateEnabled()
 end
 
--- Options in display order: each top-level option followed by its children,
--- so a sub-option always sits directly under its parent whatever order the
--- module listed them in. Children of unknown parents are appended at the end.
-local function OrderedOptions(mod)
-    local ordered, placed = {}, {}
-    for _, opt in ipairs(mod.options) do
-        if not opt.parent then
-            ordered[#ordered + 1] = opt
-            placed[opt] = true
-            for _, child in ipairs(mod.options) do
-                -- opt.key is nil for button rows; never adopt children then.
-                if opt.key and child.parent == opt.key and not placed[child] then
-                    ordered[#ordered + 1] = child
-                    placed[child] = true
-                end
+-- Options in display order: each top-level option followed by its children
+-- (recursively), so a sub-option always sits directly under its parent
+-- whatever order the module listed them in. Each option gets opt.depth
+-- (0 = top level) for indenting. Children of unknown parents go at the end.
+local function AppendWithChildren(mod, opt, ordered, placed, depth)
+    ordered[#ordered + 1] = opt
+    placed[opt] = true
+    opt.depth = depth
+    -- opt.key is nil for button rows; never adopt children then.
+    if opt.key then
+        for _, child in ipairs(mod.options) do
+            if child.parent == opt.key and not placed[child] then
+                AppendWithChildren(mod, child, ordered, placed, depth + 1)
             end
         end
     end
+end
+
+local function OrderedOptions(mod)
+    local ordered, placed = {}, {}
     for _, opt in ipairs(mod.options) do
-        if not placed[opt] then ordered[#ordered + 1] = opt end
+        if not opt.parent then AppendWithChildren(mod, opt, ordered, placed, 0) end
+    end
+    for _, opt in ipairs(mod.options) do
+        if not placed[opt] then
+            opt.depth = 0
+            ordered[#ordered + 1] = opt
+        end
     end
     return ordered
 end
@@ -402,7 +433,7 @@ end
 -- One option: a row frame holding the checkbox and a wrapping label. The row
 -- itself answers hover (tooltip) and click (toggle) so the label is live too.
 local function CreateOptionRow(parent, opt, width)
-    local indent = opt.parent and SUB_INDENT or 0
+    local indent = (opt.depth or 0) * SUB_INDENT
 
     local row = CreateFrame("Frame", nil, parent)
     row:SetWidth(width)
@@ -446,7 +477,146 @@ local function CreateOptionRow(parent, opt, width)
         if button == "LeftButton" and cb:IsEnabled() then cb:Click() end
     end)
 
-    checkboxes[#checkboxes + 1] = cb
+    cb.SetEnabledState = Checkbox_SetEnabledState
+    cb.Refresh = Checkbox_Refresh
+    controls[#controls + 1] = cb
+    return row
+end
+
+-- Segmented switch: one small button per value, the chosen one filled
+-- purple. Sits at the right of its row; the label takes the rest.
+local function Choice_Update(seg)
+    local current = ns.db[seg.option.key]
+    local on = seg.enabled
+    for _, b in ipairs(seg.segments) do
+        local selected = (b.value == current)
+        if selected then
+            if on then
+                b.bg:SetColorTexture(0.55, 0.3, 0.9, 0.9)
+                b.text:SetTextColor(1, 1, 1)
+            else
+                b.bg:SetColorTexture(0.55, 0.3, 0.9, 0.35)
+                b.text:SetTextColor(0.6, 0.6, 0.6)
+            end
+        else
+            if on then
+                b.bg:SetColorTexture(0.2, 0.15, 0.3, 0.5)
+                b.text:SetTextColor(0.7, 0.7, 0.7)
+            else
+                b.bg:SetColorTexture(0.2, 0.15, 0.3, 0.25)
+                b.text:SetTextColor(0.4, 0.4, 0.4)
+            end
+        end
+    end
+    if seg.label then
+        seg.label:SetTextColor(on and 1 or 0.5, on and 1 or 0.5, on and 1 or 0.5)
+    end
+end
+
+local function Choice_SetEnabledState(seg, on)
+    seg.enabled = on and true or false
+    for _, b in ipairs(seg.segments) do
+        if on then b:Enable() else b:Disable() end
+    end
+    Choice_Update(seg)
+end
+
+local function Choice_Refresh(seg)
+    seg.enabled = true
+    Choice_Update(seg)
+    Control_UpdateEnabled(seg)
+end
+
+local function Choice_Select(seg, value)
+    if not seg.enabled then return end
+    if ns.db[seg.option.key] == value then Choice_Update(seg) return end
+    ns.db[seg.option.key] = value
+    Choice_Update(seg)
+    if seg.option.onChange then
+        seg.option.onChange(value, seg.option)
+    end
+    Controls_UpdateEnabled()
+end
+
+local function CreateChoiceRow(parent, opt, width)
+    local indent = (opt.depth or 0) * SUB_INDENT
+
+    local row = CreateFrame("Frame", nil, parent)
+    row:SetWidth(width)
+    row:SetHeight(ROW_MIN_HEIGHT)
+    row:EnableMouse(true)
+
+    -- The control: a container holding the segments left to right, with a
+    -- hairline between neighbours, right-aligned on the row.
+    local seg = CreateFrame("Frame", nil, row)
+    seg:SetHeight(CHOICE_HEIGHT)
+    seg:SetPoint("RIGHT", row, "RIGHT", 0, 0)
+    seg.option = opt
+    seg.segments = {}
+    seg.enabled = true
+
+    local total = 0
+    local prev
+    for i, v in ipairs(opt.values or {}) do
+        local b = CreateFrame("Button", nil, seg)
+        b:SetHeight(CHOICE_HEIGHT)
+        b.value = v.value
+
+        b.bg = b:CreateTexture(nil, "BACKGROUND")
+        b.bg:SetAllPoints()
+        b.bg:SetColorTexture(0.2, 0.15, 0.3, 0.5)
+
+        b.text = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        b.text:SetPoint("CENTER")
+        b.text:SetText(v.text or tostring(v.value))
+        local w = math.max(CHOICE_MIN_WIDTH, math.ceil((b.text:GetStringWidth() or 0) + 16))
+        b:SetWidth(w)
+
+        if prev then
+            local line = Solid(seg, "ARTWORK", PURPLE_R, PURPLE_G, PURPLE_B, 0.35)
+            line:SetSize(1, CHOICE_HEIGHT)
+            line:SetPoint("LEFT", prev, "RIGHT", 0, 0)
+            b:SetPoint("LEFT", prev, "RIGHT", 1, 0)
+            total = total + 1
+        else
+            b:SetPoint("LEFT", seg, "LEFT", 0, 0)
+        end
+        total = total + w
+        prev = b
+
+        b:SetScript("OnClick", function(self) Choice_Select(seg, self.value) end)
+        b:SetScript("OnEnter", function(self)
+            if seg.enabled and ns.db[opt.key] ~= self.value then
+                self.bg:SetColorTexture(0.35, 0.22, 0.5, 0.7)
+            end
+            ShowOptionTooltip(self, opt)
+        end)
+        b:SetScript("OnLeave", function()
+            Choice_Update(seg)
+            HideTooltip()
+        end)
+        seg.segments[i] = b
+    end
+    seg:SetWidth(math.max(1, total))
+
+    local label = row:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    label:SetPoint("LEFT", row, "LEFT", indent + CHOICE_LABEL_INSET, 0)
+    label:SetWidth(math.max(40, width - indent - CHOICE_LABEL_INSET - total - 8))
+    label:SetJustifyH("LEFT")
+    label:SetWordWrap(true)
+    label:SetNonSpaceWrap(false)
+    label:SetText(opt.label or "")
+    seg.label = label
+    local textHeight = label:GetStringHeight() or 0
+    row:SetHeight(math.max(ROW_MIN_HEIGHT, textHeight + 8))
+
+    row:SetScript("OnEnter", function(self) ShowOptionTooltip(self, opt) end)
+    row:SetScript("OnLeave", HideTooltip)
+
+    seg.SetEnabledState = Choice_SetEnabledState
+    seg.Refresh = Choice_Refresh
+    controls[#controls + 1] = seg
+    Choice_Update(seg)
     return row
 end
 
@@ -532,6 +702,11 @@ local function CreateSection(parent, mod, width)
                 y = y - row:GetHeight()
                 lastButtonRow = row
             end
+        elseif opt.type == "choice" then
+            local row = CreateChoiceRow(sec, opt, width)
+            row:SetPoint("TOPLEFT", 0, y)
+            y = y - row:GetHeight()
+            lastButtonRow = nil
         else
             local row = CreateOptionRow(sec, opt, width)
             row:SetPoint("TOPLEFT", 0, y)
@@ -625,6 +800,13 @@ end
 local function BuildOptionsDialog()
     if optionsFrame then return optionsFrame end
 
+    -- Parent chains are resolved by key when greying out sub-options.
+    for _, mod in ipairs(ns.modules) do
+        for _, opt in ipairs(mod.options) do
+            if opt.key then optionByKey[opt.key] = opt end
+        end
+    end
+
     local f = CreateFrame("Frame", "MooseModeOptionsFrame", UIParent, "BackdropTemplate")
     f:SetWidth(DIALOG_WIDTH)
     f:SetFrameStrata("DIALOG")
@@ -717,7 +899,7 @@ local function BuildOptionsDialog()
     f:SetHeight(chrome + viewHeight)
 
     f:SetScript("OnShow", function()
-        for _, cb in ipairs(checkboxes) do Checkbox_Refresh(cb) end
+        for _, c in ipairs(controls) do c:Refresh() end
     end)
 
     local pos = ns.db.optionsPos or {}
