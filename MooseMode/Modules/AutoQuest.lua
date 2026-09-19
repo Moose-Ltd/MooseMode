@@ -12,6 +12,7 @@
 --   autoQuestLowLevel   Include low-level quests (sub-option)
 --   autoQuestTurnIn     Auto complete quest hand-ins (sub-option)
 --   autoGossip          Auto select gossip when it is the only option
+--   autoQuestDebug      Log every event and decision to chat (sub-option)
 --
 -- Flow at an NPC: hand in anything complete first, then accept anything
 -- available, then (gossip windows only) pick the sole gossip option. After a
@@ -79,6 +80,22 @@ local function CountTable(t)
     return type(t) == "table" and #t or 0
 end
 
+-- Debug logging: short chat lines describing each event and decision.
+local function Debug(fmt, ...)
+    if not ns.db or not ns.db.autoQuestDebug then return end
+    local ok, msg = pcall(string.format, fmt, ...)
+    ns.Print("|cff888888[quest]|r " .. (ok and msg or tostring(fmt)))
+end
+
+local function Str(v)
+    if ns.IsSecret(v) then return "<secret>" end
+    return tostring(v)
+end
+
+local function SkipReason()
+    return IsShiftKeyDown() and "shift held" or "option off"
+end
+
 -------------------------------------------------------------------------------
 -- Quest accepting
 -------------------------------------------------------------------------------
@@ -86,19 +103,24 @@ end
 -- QUEST_DETAIL: the "Accept / Decline" window for a single quest. This is
 -- also how chained follow-ups arrive right after a hand-in.
 local function OnQuestDetail()
-    if not Enabled("autoQuest") then return end
+    local questID = GetQuestID()
+    local autoAccept = QuestGetAutoAccept()
+    Debug("QUEST_DETAIL quest %s autoAccept=%s onQuest=%s trivial=%s",
+        Str(questID), Str(autoAccept), Str(IsOnQuest(questID)), Str(IsTrivial(questID)))
+    if not Enabled("autoQuest") then Debug("skipped: %s", SkipReason()) return end
 
-    if QuestGetAutoAccept() then
+    if autoAccept then
         -- Auto-accept quests (area triggers etc.) are already in the log;
         -- the window only needs dismissing.
+        Debug("acknowledging auto-accept quest")
         AcknowledgeAutoAcceptQuest()
         return
     end
 
-    local questID = GetQuestID()
-    if ns.IsSecret(questID) then return end
-    if IsOnQuest(questID) then return end
-    if not WantQuest(IsTrivial(questID)) then return end
+    if ns.IsSecret(questID) then Debug("skipped: secret quest id") return end
+    if IsOnQuest(questID) then Debug("skipped: already on quest") return end
+    if not WantQuest(IsTrivial(questID)) then Debug("skipped: trivial") return end
+    Debug("accepting")
     AcceptQuest()
 end
 
@@ -106,36 +128,46 @@ end
 -- quest; the greeting fires again for the next one once that quest is dealt
 -- with. Returns true if it selected something.
 local function AcceptGreetingQuest()
-    if not Enabled("autoQuest") then return false end
-
     local n = GetNumAvailableQuests()
+    Debug("greeting: %s available", Str(n))
     if ns.IsSecret(n) or not n then return false end
+    for i = 1, n do
+        Debug("  available %d: %s trivial=%s", i, Str(GetAvailableTitle(i)), Str((GetAvailableQuestInfo(i))))
+    end
+    if not Enabled("autoQuest") then Debug("skipped: %s", SkipReason()) return false end
     for i = 1, n do
         local isTrivial = GetAvailableQuestInfo(i)
         if WantQuest(isTrivial) then
+            Debug("selecting available quest %d", i)
             SelectAvailableQuest(i)
             return true
         end
     end
+    if n > 0 then Debug("skipped: all available quests trivial") end
     return false
 end
 
 -- GOSSIP_SHOW available-quest half. Returns true if it picked a quest.
 local function AcceptGossipQuest()
-    if not Enabled("autoQuest") then return false end
-
     local quests = C_GossipInfo.GetAvailableQuests()
+    Debug("gossip: %d available", CountTable(quests))
     if type(quests) ~= "table" then return false end
+    for i, q in ipairs(quests) do
+        Debug("  available %d: quest %s %s trivial=%s", i, Str(q.questID), Str(q.title), Str(q.isTrivial))
+    end
+    if not Enabled("autoQuest") then Debug("skipped: %s", SkipReason()) return false end
     for _, q in ipairs(quests) do
         if q.questID and not ns.IsSecret(q.questID) then
             local trivial = q.isTrivial
             if trivial == nil then trivial = IsTrivial(q.questID) end
             if WantQuest(trivial) then
+                Debug("selecting available quest %s", Str(q.questID))
                 C_GossipInfo.SelectAvailableQuest(q.questID)
                 return true
             end
         end
     end
+    if #quests > 0 then Debug("skipped: all available quests trivial") end
     return false
 end
 
@@ -146,9 +178,11 @@ end
 -- QUEST_PROGRESS: the "Continue" window listing required items. Only move on
 -- when the server says the quest can actually be completed.
 local function OnQuestProgress()
-    if not TurnInEnabled() then return end
     local completable = IsQuestCompletable()
-    if ns.IsSecret(completable) or not completable then return end
+    Debug("QUEST_PROGRESS quest %s completable=%s", Str(GetQuestID()), Str(completable))
+    if not TurnInEnabled() then Debug("skipped: hand-ins off or shift held") return end
+    if ns.IsSecret(completable) or not completable then Debug("skipped: not completable") return end
+    Debug("completing")
     CompleteQuest()
 end
 
@@ -157,26 +191,36 @@ end
 -- choose. With exactly one choice the answer is obvious; with several the
 -- window is left open for the player to decide.
 local function OnQuestComplete()
-    if not TurnInEnabled() then return end
     local n = GetNumQuestChoices()
+    Debug("QUEST_COMPLETE quest %s choices=%s", Str(GetQuestID()), Str(n))
+    if not TurnInEnabled() then Debug("skipped: hand-ins off or shift held") return end
     if ns.IsSecret(n) or not n then return end
     if n == 0 then
+        Debug("taking reward")
         GetQuestReward(0)
     elseif n == 1 then
+        Debug("taking the only reward choice")
         GetQuestReward(1)
+    else
+        Debug("left open: %d reward choices", n)
     end
 end
 
 -- QUEST_GREETING active-quest half: select the first quest that is ready to
 -- hand in. Returns true if it selected something.
 local function TurnInGreetingQuest()
-    if not TurnInEnabled() then return false end
-
     local n = GetNumActiveQuests()
+    Debug("greeting: %s active", Str(n))
     if ns.IsSecret(n) or not n then return false end
     for i = 1, n do
         local questID = GetActiveQuestID(i)
+        Debug("  active %d: quest %s %s complete=%s", i, Str(questID), Str(GetActiveTitle(i)), Str(IsQuestComplete(questID)))
+    end
+    if not TurnInEnabled() then return false end
+    for i = 1, n do
+        local questID = GetActiveQuestID(i)
         if IsQuestComplete(questID) then
+            Debug("selecting active quest %d for hand-in", i)
             SelectActiveQuest(i)
             return true
         end
@@ -186,15 +230,19 @@ end
 
 -- GOSSIP_SHOW active-quest half. Returns true if it selected something.
 local function TurnInGossipQuest()
-    if not TurnInEnabled() then return false end
-
     local quests = C_GossipInfo.GetActiveQuests()
+    Debug("gossip: %d active", CountTable(quests))
     if type(quests) ~= "table" then return false end
+    for i, q in ipairs(quests) do
+        Debug("  active %d: quest %s %s complete=%s", i, Str(q.questID), Str(q.title), Str(q.isComplete))
+    end
+    if not TurnInEnabled() then return false end
     for _, q in ipairs(quests) do
         if q.questID and not ns.IsSecret(q.questID) then
             local complete = q.isComplete
             if complete == nil then complete = IsQuestComplete(q.questID) end
             if not ns.IsSecret(complete) and complete then
+                Debug("selecting active quest %s for hand-in", Str(q.questID))
                 C_GossipInfo.SelectActiveQuest(q.questID)
                 return true
             end
@@ -213,25 +261,33 @@ end
 -- Selection goes through SelectOptionByIndex(orderIndex), the call Blizzard's
 -- own GossipFrame makes; SelectOption(gossipOptionID) is the fallback.
 local function SelectOnlyGossipOption()
-    if not Enabled("autoGossip") then return false end
+    local options = C_GossipInfo.GetOptions()
+    Debug("gossip: %d options", CountTable(options))
+    if type(options) == "table" then
+        for i, o in ipairs(options) do
+            Debug("  option %d: %s (id %s, order %s)", i, Str(o.name), Str(o.gossipOptionID), Str(o.orderIndex))
+        end
+    end
+    if not Enabled("autoGossip") then Debug("gossip skipped: %s", SkipReason()) return false end
 
     local active = C_GossipInfo.GetNumActiveQuests()
-    if ns.IsSecret(active) or (active or 0) > 0 then return false end
+    if ns.IsSecret(active) or (active or 0) > 0 then Debug("gossip skipped: active quests present") return false end
 
     local available = C_GossipInfo.GetNumAvailableQuests()
-    if ns.IsSecret(available) or (available or 0) > 0 then return false end
+    if ns.IsSecret(available) or (available or 0) > 0 then Debug("gossip skipped: available quests present") return false end
 
-    local options = C_GossipInfo.GetOptions()
-    if CountTable(options) ~= 1 then return false end
+    if CountTable(options) ~= 1 then Debug("nothing to do") return false end
 
     local opt = options[1]
     if not opt then return false end
     if opt.orderIndex and not ns.IsSecret(opt.orderIndex) and C_GossipInfo.SelectOptionByIndex then
+        Debug("selecting the only gossip option (order %s)", Str(opt.orderIndex))
         C_GossipInfo.SelectOptionByIndex(opt.orderIndex)
         return true
     end
     local id = opt.gossipOptionID
     if not id or ns.IsSecret(id) then return false end
+    Debug("selecting the only gossip option (id %s)", Str(id))
     C_GossipInfo.SelectOption(id)
     return true
 end
@@ -241,11 +297,14 @@ end
 -------------------------------------------------------------------------------
 
 local function OnQuestGreeting()
+    Debug("QUEST_GREETING")
     if TurnInGreetingQuest() then return end
-    AcceptGreetingQuest()
+    if AcceptGreetingQuest() then return end
+    Debug("nothing to do")
 end
 
 local function OnGossipShow()
+    Debug("GOSSIP_SHOW")
     if TurnInGossipQuest() then return end
     if AcceptGossipQuest() then return end
     SelectOnlyGossipOption()
@@ -293,5 +352,13 @@ ns:RegisterModule({
           tooltip = "Hand in completed quests automatically and pick up any follow-up. If a quest offers more than one reward to choose from, the window stays open so you can pick." },
         { key = "autoGossip", label = "Auto select gossip", default = true,
           tooltip = "When an NPC offers exactly one gossip option and no quests, pick it automatically. Menus with several choices are never touched. Hold Shift to skip." },
+        { key = "autoQuestDebug", label = "Debug: log quest automation to chat", default = false, parent = "autoQuest",
+          tooltip = "Print every quest event, what the NPC offered and every decision to chat. Also /mm questdebug." },
+    },
+    commands = {
+        questdebug = function()
+            ns.db.autoQuestDebug = not ns.db.autoQuestDebug
+            ns.Print("Quest debug logging " .. (ns.db.autoQuestDebug and "|cff00ff00on|r" or "|cffff0000off|r"))
+        end,
     },
 })

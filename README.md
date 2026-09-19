@@ -47,6 +47,7 @@ Then start the game, click **AddOns** on the character select screen and make su
 | `/mm now` | Sell junk at the vendor that is currently open |
 | `/mm repair` | Repair all gear at the vendor that is currently open, whatever the option says |
 | `/mm cleanup` (or `/mm sort`) | Sort your bags now with Blizzard's cleanup |
+| `/mm questdebug` | Toggle quest debug logging: every quest event, what the NPC offered and each decision, in chat |
 
 ## Options
 
@@ -60,6 +61,7 @@ Then start the game, click **AddOns** on the character select screen and make su
 | Auto Quest | ↳ Include low-level quests (sub-option, greyed out while the parent is off) | off |
 | Auto Quest | ↳ Auto complete quest hand-ins (sub-option; reward windows with several choices stay open) | on |
 | Auto Quest | Auto select gossip (only when it is the sole option and there are no quests) | on |
+| Auto Quest | ↳ Debug: log quest automation to chat (sub-option) | off |
 | Auto Repair | Auto repair at vendors | on |
 | Auto Repair | ↳ Use guild bank funds when allowed (sub-option) | off |
 | Auto Repair | ↳ Show repair cost in chat (sub-option) | on |
