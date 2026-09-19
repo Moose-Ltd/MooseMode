@@ -5,13 +5,13 @@ A growing bag of quality-of-life tools for **World of Warcraft: Forever**. It co
 ## Features
 
 - **Minimap button.** A glossy purple orb with a white sparkle on the minimap edge, drawn from the addon's own icon file. Left-click opens the options panel, drag it to move it around the minimap. If your client draws the ring slightly off, `/mm icon <dx> <dy>` nudges the icon.
-- **Options panel.** Every module's settings as tick boxes, plus button rows for one-off actions. Settings are saved per account, so every character shares them.
+- **Options panel.** A centred dialog with every module's settings grouped under Vendors, Quests, Loot, Combat and Interface headings: tick boxes, segmented switches for either/or choices, and button rows for one-off actions. Sub-options indent under their parent and grey out while it is off. Settings are saved per account, so every character shares them.
 - **Auto Sell.** Sells every grey item as soon as a vendor window opens and prints what it earned. Hold **Shift** while talking to a vendor to skip selling that visit. Keep and junk lists let you protect a grey item or force-sell a non-grey one.
 - **Fast Loot.** Grabs everything from a corpse the moment the loot is ready. Optionally leaves grey items behind; money and quest items are always taken. While it is on it takes over the game's own auto-loot setting (otherwise the client would loot every slot before the grey rule could apply) and restores it when turned off. Hold the game's auto-loot modifier key (Shift by default) when loot opens to get the normal loot window instead.
 - **Pet Attack.** Sends your pet at the target the moment you start casting a damage spell, so a Voidwalker is already running in while Corruption is still on the cast bar. Every pet command (attack, assist, stances) is protected on this client and cannot be called by an addon, so this works through macros: tick the option and MooseMode writes one macro per damage spell in your spellbook (`#showtooltip`, `/petattack`, `/cast`), and you drag those onto your bars in place of the spells. It never overwrites a macro it did not create, and turning the option off leaves the macros alone.
 - **Action Bars.** Hides the macro name text under the icon on every action bar button, so a bar of pet-attack macros looks like a bar of spells. Untick to bring the names back.
 - **Spell Ranks.** Forever has Vanilla-style spell ranks on the Retail client, so learning Demon Armor rank 3 leaves any button that holds rank 2 casting rank 2. This module swaps such buttons to the highest rank you know, out of combat, whenever you learn a spell and once at login, and reports each swap in chat. Name-based macros (`/cast Demon Armor`) already cast the top rank; this covers plain spell buttons dragged from the spellbook.
-- **Auto Quest.** Accepts quests automatically from quest givers, quest lists and gossip windows, hands in completed quests, and picks up the follow-ups that unlock. Low-level quests are skipped unless you tick the sub-option: a quest counts as low level when the client flags it trivial or its level is at or below your grey threshold, and a second sub-option extends that to anything below your level. The debug option logs each quest's level, your level and the grey threshold so you can see why a quest was skipped. If a hand-in offers more than one reward to choose from, the window stays open so you can pick. Also picks the gossip option for you when an NPC offers exactly one and no quests. Hold **Shift** while talking to an NPC to skip all of it.
+- **Auto Quest.** Accepts quests automatically from quest givers, quest lists and gossip windows, hands in completed quests, and picks up the follow-ups that unlock. Low-level quests are skipped by default; the **Skip when** switch decides how low is low: **Grey only** (the client flags the quest trivial, or its level is at or below your grey threshold) or **Green and grey** (anything the game colours as easy, using the client's own difficulty colour). Untick **Skip low-level quests** to accept everything. The debug option logs each quest's level, your level, the grey threshold, its colour and the threshold in use so you can see why a quest was skipped. If a hand-in offers more than one reward to choose from, the window stays open so you can pick. Also picks the gossip option for you when an NPC offers exactly one and no quests. Hold **Shift** while talking to an NPC to skip all of it.
 - **Quest Rewards.** When a quest lets you choose a reward, each choice shows its vendor sell value in gold text on the button and the most valuable one gets a gold border (ties all get it). Works in the hand-in window and in the quest log and map details, since Blizzard draws them all through the same reward frame. Prices the client has not seen yet fill in a moment later.
 - **Auto Repair.** Repairs all your gear as soon as a vendor that can repair opens, and prints the cost. Optionally pays from the guild bank when your rank allows it. Warns you if you cannot afford it. Hold **Shift** while talking to the vendor to skip.
 - **One Bag.** Shows every bag as a single window, Bagnon/Baganator style. It switches on the client's own combined-bag mode rather than drawing its own bag frame, so clicking to use items, dragging, shift-linking, selling to vendors and using items in combat all keep working on Blizzard's secure item buttons, and the built-in Clean Up sort keeps working too. Optional sub-options run the sort automatically each time the bag opens, or make it pack items from the last slot. The setting is per account; the client-side switch is per character, so it is re-applied at every login to match.
@@ -62,37 +62,39 @@ Then start the game, click **AddOns** on the character select screen and make su
 
 ## Options
 
-| Module | Option | Default |
-|---|---|---|
-| Auto Sell | Sell grey items at vendors | on |
-| Auto Sell | Show sale summary in chat | on |
-| Auto Sell | Use Blizzard sell-all (ignores lists) | off |
-| Fast Loot | Loot everything instantly | on |
-| Fast Loot | ↳ Leave grey items | off |
-| Pet Attack | Pet-attack macros for damage spells | off |
-| Pet Attack | ↳ Only on pet classes (Hunter, Warlock) | on |
-| Action Bars | Hide macro names on bars | on |
-| Spell Ranks | Keep bars on highest spell rank | on |
-| Spell Ranks | ↳ Report swaps in chat | on |
-| Auto Quest | Accept quests | on |
-| Auto Quest | ↳ Include low-level quests | off |
-| Auto Quest | ↳ Also skip quests below my level (skips quests the game colours green, using the client's own difficulty colour; no effect while low-level quests are included) | off |
-| Auto Quest | ↳ Complete quest hand-ins (reward windows with several choices stay open) | on |
-| Auto Quest | Pick the only gossip option | on |
-| Auto Quest | ↳ Debug log to chat | off |
-| Quest Rewards | Show vendor value on rewards | on |
-| Quest Rewards | ↳ Highlight the most valuable | on |
-| Auto Repair | Repair at vendors | on |
-| Auto Repair | ↳ Use guild funds when allowed | off |
-| Auto Repair | ↳ Show repair cost in chat | on |
-| One Bag | Combine bags into one window | on |
-| One Bag | ↳ Sort bags on open (at most once every 2 s, never in combat) | off |
-| One Bag | ↳ Sort from the last slot | off |
-| Graphics | Ultra graphics preset (Apply / Restore buttons) | – |
-| Graphics | Re-apply ultra at login | off |
-| Graphics | Max camera zoom distance | on |
-| Graphics | Vivid colours | off |
-| Beta Client | Hide Issue Reporter button | on |
+The dialog groups sections under five headings, in this order. `↳` marks a sub-option (indented, greyed out while its parent is off); `↳↳` a sub-option's sub-option.
+
+| Group | Module | Option | Default |
+|---|---|---|---|
+| Vendors | Auto Sell | Sell grey items at vendors | on |
+| Vendors | Auto Sell | Show sale summary in chat | on |
+| Vendors | Auto Sell | Use Blizzard sell-all (ignores lists) | off |
+| Vendors | Auto Repair | Repair at vendors | on |
+| Vendors | Auto Repair | ↳ Use guild funds when allowed | off |
+| Vendors | Auto Repair | ↳ Show repair cost in chat | on |
+| Quests | Auto Quest | Accept quests | on |
+| Quests | Auto Quest | ↳ Skip low-level quests | on |
+| Quests | Auto Quest | ↳↳ Skip when: **Grey only** / Green and grey (switch) | Grey only |
+| Quests | Auto Quest | ↳ Complete quest hand-ins (reward windows with several choices stay open) | on |
+| Quests | Auto Quest | Pick the only gossip option | on |
+| Quests | Auto Quest | ↳ Debug log to chat | off |
+| Quests | Quest Rewards | Show vendor value on rewards | on |
+| Quests | Quest Rewards | ↳ Highlight the most valuable | on |
+| Loot | Fast Loot | Loot everything instantly | on |
+| Loot | Fast Loot | ↳ Leave grey items | off |
+| Combat | Pet Attack | Pet-attack macros for damage spells | off |
+| Combat | Pet Attack | ↳ Only on pet classes (Hunter, Warlock) | on |
+| Combat | Spell Ranks | Keep bars on highest spell rank | on |
+| Combat | Spell Ranks | ↳ Report swaps in chat | on |
+| Interface | One Bag | Combine bags into one window | on |
+| Interface | One Bag | ↳ Sort bags on open (at most once every 2 s, never in combat) | off |
+| Interface | One Bag | ↳ Sort from the last slot | off |
+| Interface | Action Bars | Hide macro names on bars | on |
+| Interface | Graphics | Ultra graphics preset (Apply / Restore buttons) | – |
+| Interface | Graphics | Re-apply ultra at login | off |
+| Interface | Graphics | Max camera zoom distance | on |
+| Interface | Graphics | Vivid colours | off |
+| Interface | Beta Client | Hide Issue Reporter button | on |
 
 ## Layout
 
@@ -127,12 +129,19 @@ local ADDON, ns = ...
 
 ns:RegisterModule({
     key   = "yourThingModule",
-    label = "Your Thing",                      -- header in the options panel
+    label = "Your Thing",                      -- section header in the options dialog
+    group = "Interface",                       -- heading it sits under: Vendors, Quests, Loot, Combat, Interface
     options = {
         { key = "yourThing", label = "Do the thing", default = true,
           tooltip = "Shown on hover.", onChange = function(checked) end },
         { key = "yourThingExtra", label = "Do it harder", default = false,
           parent = "yourThing" },              -- sub-option: indented, greyed out while parent is off
+        { type = "choice", key = "yourThingMode", label = "Mode", default = "fast",
+          values = { { value = "fast", text = "Fast" }, { value = "safe", text = "Safe" } },
+          parent = "yourThing",                -- sub-options can nest; parent may itself be a sub-option
+          tooltip = "A segmented switch; ns.db.yourThingMode holds the value." },
+        { type = "button", label = "Do it once", buttonText = "Go",
+          tooltip = "One-off action, nothing saved.", onClick = function() end },
     },
     OnInit   = function(mod) end,              -- ns.db exists here
     commands = { thing = function(rest) end }, -- /mm thing <rest>
