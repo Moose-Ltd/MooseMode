@@ -151,6 +151,12 @@ ns:RegisterModule({
 
 Read settings with `ns.db.yourThing`. Helpers on `ns`: `Print`, `IsSecret`, `Coins`, `ItemIDFrom`, `ItemNameByID`.
 
+## Beta note: settings backup macros
+
+The Forever beta client has a Blizzard bug: it writes addon saved variables on logout but never reads them back at launch, so every addon would start from defaults each session. Macros do survive a restart, so MooseMode also writes every setting that differs from its default into one or more account macros named `MMcfg1`, `MMcfg2`, … (one is enough for typical settings) and reads them back whenever the saved table arrives empty. You will see "settings restored from backup" in chat at login while the bug lasts.
+
+Leave those macros alone. They are rewritten automatically a couple of seconds after any change, and clicking one only prints a note. If the macro list is full the addon says so once in chat and settings then last only for the session.
+
 ## Notes on the Forever client
 
 Forever (interface `16001`) runs the Retail 12.x UI code, not the Classic Era code. The old Classic globals such as `GetItemInfo` and `GetContainerItemInfo` do not exist, so the addon only uses the modern `C_Container`, `C_Item`, `C_CurrencyInfo`, `C_CVar` and `C_Timer` namespaces. The TOC also lists `120105`, so the same files load on Retail.
