@@ -16,4 +16,5 @@ Modules\AutoQuest.lua
 Modules\QuestRewards.lua
 Modules\AutoRepair.lua
 Modules\OneBag.lua
+Modules\Graphics.lua
 Modules\BetaTweaks.lua
