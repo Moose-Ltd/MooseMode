@@ -35,9 +35,15 @@
 --     (GetTitleText()); QuestInfoFrame.questLog is nil for the NPC offer and
 --     true for the quest log / map views (lines 50, 1111-1154). The header is
 --     decorated after hooksecurefunc("QuestInfo_ShowTitle") and on
---     QUEST_DETAIL, NPC offers only (skip reason goes on its own line above
---     the Accept/Decline buttons, not in the title), rebuilt from GetTitleText() so a
---     follow-up quest in the same panel is re-read, never decorated twice.
+--     QUEST_DETAIL, NPC offers only (skip reason goes in the button row
+--     between Accept and Decline, not in the title), rebuilt from
+--     GetTitleText() so a follow-up quest in the same panel is re-read,
+--     never decorated twice.
+--
+-- Colours: every difficulty colour comes from Auto Quest's level rule
+-- (ns.AutoQuest.DifficultyName / DifficultyRGB), not from the client's
+-- GetQuestDifficultyColor, so the lists, the offer window and the accept
+-- decision can never disagree.
 --
 -- The original title is kept on the button (MooseOriginalText) and the
 -- text is always rebuilt from it, so nothing is decorated twice.
@@ -82,16 +88,32 @@ local function QuestLevel(questID)
     return lvl
 end
 
--- "|cffrrggbb" for the game's difficulty colour of a quest level, or nil.
-local function LevelColourCode(level)
-    if not level or not GetQuestDifficultyColor then return nil end
-    local ok, c = pcall(GetQuestDifficultyColor, level)
-    if not ok or type(c) ~= "table" then return nil end
-    local r, g, b = c.r, c.g, c.b
-    if type(r) ~= "number" or type(g) ~= "number" or type(b) ~= "number" then return nil end
-    if ns.IsSecret(r) or ns.IsSecret(g) or ns.IsSecret(b) then return nil end
+-- "|cffrrggbb" for a difficulty name (grey/green/yellow/orange/red), or nil.
+-- Colours come from Auto Quest's level rule, never from the client's
+-- GetQuestDifficultyColor, which on Forever answered yellow for a quest the
+-- quest log showed green; this way the lists, the offer window and the
+-- accept decision always agree.
+local function ColourCodeFor(name)
+    local aq = ns.AutoQuest
+    if not name or not aq or not aq.DifficultyRGB then return nil end
+    local r, g, b = aq.DifficultyRGB(name)
+    if type(r) ~= "number" then return nil end
     return ("|cff%02x%02x%02x"):format(
         math.floor(r * 255 + 0.5), math.floor(g * 255 + 0.5), math.floor(b * 255 + 0.5))
+end
+
+-- Difficulty name for a quest by the level rule, or nil when unknown.
+local function DifficultyName(questID)
+    local aq = ns.AutoQuest
+    if not aq or not aq.DifficultyName then return nil end
+    local ok, name = pcall(aq.DifficultyName, questID)
+    if not ok then return nil end
+    return name
+end
+
+-- "|cffrrggbb" for a quest's difficulty, or nil.
+local function QuestColourCode(questID)
+    return ColourCodeFor(DifficultyName(questID))
 end
 
 local function IsComplete(questID)
@@ -119,7 +141,7 @@ end
 -- leaves the skip tag off (the detail window shows it separately).
 local function Decorate(title, questID, kind, apiTrivial, isComplete, noTag)
     local level = QuestLevel(questID)
-    local colour = LevelColourCode(level)
+    local colour = QuestColourCode(questID)
     local text
     if kind == "active" and (isComplete or IsComplete(questID)) then
         text = GOLD .. (level and ("[" .. level .. "] ") or "") .. title .. " (complete)|r"
@@ -285,24 +307,25 @@ local function DetailOfferShown()
     return QuestInfoTitleHeader and QuestInfoTitleHeader.SetText and true or false
 end
 
--- The skip reason on the detail window lives in its own line in the dark
--- strip between the parchment and the Accept/Decline buttons, spanning
--- from the Accept button to the Decline button so it is centred. The
--- ornate title font made a tag appended there hard to read.
+-- The skip reason on the detail window sits in the button row itself,
+-- between the Accept and Decline buttons, so it can never land on the
+-- parchment (a line above the buttons overlapped the reward items). The
+-- ornate title font made a tag appended to the title hard to read.
 local detailNote
 
 local function DetailNote()
     if detailNote then return detailNote end
     if not QuestFrameDetailPanel or not QuestFrameDetailPanel.CreateFontString then return nil end
-    local fs = QuestFrameDetailPanel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    local fs = QuestFrameDetailPanel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     if QuestFrameAcceptButton and QuestFrameDeclineButton then
-        fs:SetPoint("BOTTOMLEFT", QuestFrameAcceptButton, "TOPLEFT", 0, 6)
-        fs:SetPoint("BOTTOMRIGHT", QuestFrameDeclineButton, "TOPRIGHT", 0, 6)
+        fs:SetPoint("LEFT", QuestFrameAcceptButton, "RIGHT", 8, 0)
+        fs:SetPoint("RIGHT", QuestFrameDeclineButton, "LEFT", -8, 0)
     else
-        fs:SetPoint("BOTTOM", QuestFrameDetailPanel, "BOTTOM", 0, 44)
-        fs:SetWidth(300)
+        fs:SetPoint("BOTTOM", QuestFrameDetailPanel, "BOTTOM", 0, 14)
+        fs:SetWidth(200)
     end
     fs:SetJustifyH("CENTER")
+    fs:SetWordWrap(false)
     fs:SetShadowColor(0, 0, 0, 1)
     fs:SetShadowOffset(1, -1)
     fs:Hide()
@@ -310,21 +333,34 @@ local function DetailNote()
     return fs
 end
 
-local REASON_COLOUR = {
-    grey  = "|cff9d9d9d",
-    green = "|cff40bf40",
-}
+-- Room between the two buttons, or nil when the buttons are not there.
+local function DetailNoteWidth()
+    if not QuestFrameAcceptButton or not QuestFrameDeclineButton then return nil end
+    local ok, w = pcall(function()
+        return QuestFrameDeclineButton:GetLeft() - QuestFrameAcceptButton:GetRight() - 16
+    end)
+    if ok and type(w) == "number" then return w end
+    return nil
+end
 
 local function UpdateDetailNote(questID)
     local note = DetailNote()
     if not note then return end
     local reason = SkipReason(questID, nil)
     if not reason then note:Hide() return end
-    local word = reason
-    if reason == "shift" then word = "Shift held" end
-    local colour = REASON_COLOUR[reason] or GREY
-    note:SetText(GOLD .. "Auto Quest left this for you: " .. colour .. word .. "|r"
-        .. (reason == "shift" and "" or GOLD .. " quest|r") .. "|r")
+    local text
+    if reason == "shift" then
+        text = GOLD .. "Skipped: Shift held|r"
+    else
+        local colour = ColourCodeFor(reason) or GREY
+        local width = DetailNoteWidth()
+        if width and width < 120 then
+            text = GOLD .. "Skipped: " .. colour .. reason .. "|r"
+        else
+            text = GOLD .. "Skipped: " .. colour .. reason .. "|r" .. GOLD .. " quest|r"
+        end
+    end
+    note:SetText(text)
     note:Show()
 end
 

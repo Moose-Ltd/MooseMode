@@ -173,6 +173,36 @@ function ns.AutoQuest.WouldSkip(questID, apiFlag)
     return true, "grey"
 end
 
+-- Difficulty name for a quest by the level rule above, or nil when the
+-- level is unknown. QuestLists colours every quest line from this so the
+-- list, the offer window and the accept decision always agree.
+function ns.AutoQuest.DifficultyName(questID)
+    return DifficultyColour(QuestLevel(questID), PlayerLevel())
+end
+
+-- r, g, b for a difficulty name. Blizzard's QuestDifficultyColors table is
+-- used when present (trivial=grey, standard=green, difficult=yellow,
+-- verydifficult=orange, impossible=red), else fixed values.
+local DIFFICULTY_KEY = {
+    grey = "trivial", green = "standard", yellow = "difficult",
+    orange = "verydifficult", red = "impossible",
+}
+local DIFFICULTY_RGB = {
+    grey = { 0.5, 0.5, 0.5 }, green = { 0.25, 0.75, 0.25 }, yellow = { 1, 0.82, 0 },
+    orange = { 1, 0.5, 0.25 }, red = { 1, 0.1, 0.1 },
+}
+function ns.AutoQuest.DifficultyRGB(name)
+    local key = DIFFICULTY_KEY[name]
+    local named = key and QuestDifficultyColors and QuestDifficultyColors[key]
+    if type(named) == "table" and type(named.r) == "number" and type(named.g) == "number"
+       and type(named.b) == "number" and not ns.IsSecret(named.r) then
+        return named.r, named.g, named.b
+    end
+    local fixed = DIFFICULTY_RGB[name]
+    if fixed then return fixed[1], fixed[2], fixed[3] end
+    return nil
+end
+
 local function CountTable(t)
     return type(t) == "table" and #t or 0
 end
