@@ -283,6 +283,7 @@ ns:RegisterModule({
           end },
         { key = "spellRanksReport", label = "Report swaps in chat", default = true, parent = "spellRanksUpgrade",
           tooltip = "Print a line for each spell that was moved to a higher rank." },
+        { type = "note", text = "When you learn a higher rank, bar buttons still holding the old rank are swapped for the new one. Macros already cast your highest rank." },
     },
     commands = {
         ranks = function() Scan(true) end,

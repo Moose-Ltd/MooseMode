@@ -138,6 +138,7 @@ ns:RegisterModule({
           tooltip = "A segmented switch; ns.db.yourThingMode holds the value." },
         { type = "button", label = "Do it once", buttonText = "Go",
           tooltip = "One-off action, nothing saved.", onClick = function() end },
+        { type = "note", text = "Muted explainer text under the section; no control, nothing saved." },
     },
     OnInit   = function(mod) end,              -- ns.db exists here
     commands = { thing = function(rest) end }, -- /mm thing <rest>

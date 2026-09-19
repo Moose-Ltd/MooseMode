@@ -237,6 +237,7 @@ ns:RegisterModule({
           end },
         { key = "petAttackOnlyPetClasses", label = "Only on pet classes", default = true, parent = "petAttackMacros",
           tooltip = "Only build the macros on Hunters and Warlocks." },
+        { type = "note", text = "Creates one macro per damage spell with /petattack in front, so your pet charges the moment you cast. Drag the macros onto your bars in place of the spells. Re-run after learning new spells." },
     },
     commands = {
         petmacros = function() Generate(true) end,
