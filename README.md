@@ -11,6 +11,7 @@ A growing bag of quality-of-life tools for **World of Warcraft: Forever**. It co
 - **Pet Attack.** Sends your pet at the target the moment you start casting a damage spell, so a Voidwalker is already running in while Corruption is still on the cast bar. Every pet command (attack, assist, stances) is protected on this client and cannot be called by an addon, so this works through macros: tick the option and MooseMode writes one macro per damage spell in your spellbook (`#showtooltip`, `/petattack`, `/cast`), and you drag those onto your bars in place of the spells. It never overwrites a macro it did not create, and turning the option off leaves the macros alone.
 - **Action Bars.** Hides the macro name text under the icon on every action bar button, so a bar of pet-attack macros looks like a bar of spells. Untick to bring the names back.
 - **Auto Quest.** Accepts quests automatically from quest givers, quest lists and gossip windows, hands in completed quests, and picks up the follow-ups that unlock. Low-level quests are skipped unless you tick the sub-option: a quest counts as low level when the client flags it trivial or its level is at or below your grey threshold, and a second sub-option extends that to anything below your level. The debug option logs each quest's level, your level and the grey threshold so you can see why a quest was skipped. If a hand-in offers more than one reward to choose from, the window stays open so you can pick. Also picks the gossip option for you when an NPC offers exactly one and no quests. Hold **Shift** while talking to an NPC to skip all of it.
+- **Quest Rewards.** When a quest lets you choose a reward, each choice shows its vendor sell value in gold text on the button and the most valuable one gets a gold border (ties all get it). Works in the hand-in window and in the quest log and map details, since Blizzard draws them all through the same reward frame. Prices the client has not seen yet fill in a moment later.
 - **Auto Repair.** Repairs all your gear as soon as a vendor that can repair opens, and prints the cost. Optionally pays from the guild bank when your rank allows it. Warns you if you cannot afford it. Hold **Shift** while talking to the vendor to skip.
 - **One Bag.** Shows every bag as a single window, Bagnon/Baganator style. It switches on the client's own combined-bag mode rather than drawing its own bag frame, so clicking to use items, dragging, shift-linking, selling to vendors and using items in combat all keep working on Blizzard's secure item buttons, and the built-in Clean Up sort keeps working too. Optional sub-options run the sort automatically each time the bag opens, or make it pack items from the last slot. The setting is per account; the client-side switch is per character, so it is re-applied at every login to match.
 - **Beta Client.** Hides the floating "Issue Reporter" widget (the blue beetle button) that the beta client parks on screen. Bug report and survey popups still work, and `/ptr` still opens the reporter. Does nothing on a client that has no issue reporter.
@@ -70,6 +71,8 @@ Then start the game, click **AddOns** on the character select screen and make su
 | Auto Quest | ↳ Complete quest hand-ins (reward windows with several choices stay open) | on |
 | Auto Quest | Pick the only gossip option | on |
 | Auto Quest | ↳ Debug log to chat | off |
+| Quest Rewards | Show vendor value on rewards | on |
+| Quest Rewards | ↳ Highlight the most valuable | on |
 | Auto Repair | Repair at vendors | on |
 | Auto Repair | ↳ Use guild funds when allowed | off |
 | Auto Repair | ↳ Show repair cost in chat | on |
@@ -90,6 +93,7 @@ MooseMode/
     PetAttack.lua       /petattack macros for damage spells
     ActionBars.lua      hide macro names on action bar buttons
     AutoQuest.lua       quest accepting, hand-ins and gossip automation
+    QuestRewards.lua    vendor value and best-choice highlight on quest rewards
     AutoRepair.lua      gear repair at vendors
     OneBag.lua          combined bag window and bag cleanup
     BetaTweaks.lua      beta client fixes (hide the Issue Reporter)
