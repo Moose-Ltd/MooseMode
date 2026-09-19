@@ -17,6 +17,7 @@ ns.db = nil              -- MooseModeDB once ADDON_LOADED has fired
 
 local CORE_DEFAULTS = {
     minimap = { angle = 220, hide = false },
+    optionsPos = { x = 0, y = 0 },   -- dialog centre offset from screen centre
 }
 
 -------------------------------------------------------------------------------
@@ -529,7 +530,16 @@ local function BuildOptionsDialog()
     titleBar:EnableMouse(true)
     titleBar:RegisterForDrag("LeftButton")
     titleBar:SetScript("OnDragStart", function() f:StartMoving() end)
-    titleBar:SetScript("OnDragStop", function() f:StopMovingOrSizing() end)
+    titleBar:SetScript("OnDragStop", function()
+        f:StopMovingOrSizing()
+        -- Remember where it was left, as an offset from the screen centre.
+        local cx, cy = f:GetCenter()
+        local ux, uy = UIParent:GetCenter()
+        if cx and ux then
+            ns.db.optionsPos.x = math.floor(cx - ux + 0.5)
+            ns.db.optionsPos.y = math.floor(cy - uy + 0.5)
+        end
+    end)
 
     local strip = Solid(titleBar, "BACKGROUND", 0.55, 0.3, 0.9, 0.25)
     strip:SetAllPoints()
@@ -587,7 +597,8 @@ local function BuildOptionsDialog()
         for _, cb in ipairs(checkboxes) do Checkbox_Refresh(cb) end
     end)
 
-    f:SetPoint("CENTER")
+    local pos = ns.db.optionsPos or {}
+    f:SetPoint("CENTER", UIParent, "CENTER", pos.x or 0, pos.y or 0)
 
     optionsFrame = f
     return f
