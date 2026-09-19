@@ -16,7 +16,7 @@ ns.modules = {}          -- ordered list of registered modules
 ns.db = nil              -- MooseModeDB once ADDON_LOADED has fired
 
 local CORE_DEFAULTS = {
-    minimap = { angle = 220, hide = false },
+    minimap = { angle = 220, hide = false, iconDX = 0, iconDY = 0 },
     optionsPos = { x = 0, y = 0 },   -- dialog centre offset from screen centre
 }
 
@@ -153,6 +153,39 @@ local function MinimapButton_OnDragUpdate(self)
     MinimapButton_UpdatePosition()
 end
 
+local ICON_CENTER_X, ICON_CENTER_Y = 16.5, -15
+
+local function MinimapButton_UpdateIconOffset(b)
+    b = b or minimapButton
+    if not b or not b.icon then return end
+    local dx = (ns.db and ns.db.minimap.iconDX) or 0
+    local dy = (ns.db and ns.db.minimap.iconDY) or 0
+    b.icon:ClearAllPoints()
+    b.icon:SetPoint("CENTER", b, "TOPLEFT", ICON_CENTER_X + dx, ICON_CENTER_Y + dy)
+    b.background:ClearAllPoints()
+    b.background:SetPoint("CENTER", b, "TOPLEFT", ICON_CENTER_X + dx, ICON_CENTER_Y + dy)
+end
+
+-- /mm icon <dx> <dy>  (or /mm icon reset) nudges the icon inside the ring.
+function ns.NudgeMinimapIcon(rest)
+    if not ns.db then return end
+    rest = (rest or ""):lower()
+    if rest == "reset" then
+        ns.db.minimap.iconDX, ns.db.minimap.iconDY = 0, 0
+    else
+        local dx, dy = rest:match("^(-?%d+%.?%d*)%s+(-?%d+%.?%d*)$")
+        if dx then
+            ns.db.minimap.iconDX = tonumber(dx) or 0
+            ns.db.minimap.iconDY = tonumber(dy) or 0
+        elseif rest ~= "" then
+            ns.Print("Usage: /mm icon <dx> <dy>  (e.g. /mm icon 0.5 -1) or /mm icon reset")
+            return
+        end
+    end
+    MinimapButton_UpdateIconOffset()
+    ns.Print(("Minimap icon offset: %s, %s"):format(tostring(ns.db.minimap.iconDX), tostring(ns.db.minimap.iconDY)))
+end
+
 local function CreateMinimapButton()
     if minimapButton then return minimapButton end
 
@@ -171,19 +204,23 @@ local function CreateMinimapButton()
     overlay:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
     overlay:SetPoint("TOPLEFT")
 
+    -- The tracking border ring (53x53 hung from the button TOPLEFT) has its
+    -- centre at about (16.5, -15) from that corner. Both the dark backing disc
+    -- and the icon are anchored by CENTER to that point so they sit in the
+    -- ring; /mm icon <dx> <dy> nudges them if a client renders the ring off.
     local background = b:CreateTexture(nil, "BACKGROUND")
-    background:SetSize(20, 20)
+    background:SetSize(21, 21)
     background:SetTexture("Interface\\Minimap\\UI-Minimap-Background")
     background:SetVertexColor(0.12, 0.05, 0.18)
-    background:SetPoint("TOPLEFT", 7, -5)
+    b.background = background
 
     local icon = b:CreateTexture(nil, "ARTWORK")
-    icon:SetSize(17, 17)
-    icon:SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIcons")
-    icon:SetTexCoord(0, 0.25, 0, 0.25)          -- the star
-    icon:SetVertexColor(0.7, 0.25, 1.0)          -- dank purple
-    icon:SetPoint("TOPLEFT", 7, -6)
+    icon:SetSize(21, 21)
+    icon:SetTexture("Interface\\AddOns\\MooseMode\\media\\icon.tga")
+    icon:SetTexCoord(0, 1, 0, 1)
+    icon:SetVertexColor(1, 1, 1)
     b.icon = icon
+    MinimapButton_UpdateIconOffset(b)
 
     b:SetScript("OnDragStart", function(self)
         self:SetScript("OnUpdate", MinimapButton_OnDragUpdate)
@@ -701,7 +738,7 @@ end
 -------------------------------------------------------------------------------
 
 local function PrintHelp()
-    ns.Print("/mm or /moose  opens the options dialog.  /mm minimap  toggles the minimap button.")
+    ns.Print("/mm or /moose  opens the options dialog.  /mm minimap  toggles the minimap button.  /mm icon <dx> <dy>  nudges the icon.")
     for _, mod in ipairs(ns.modules) do
         local names = {}
         for sub in pairs(mod.commands) do names[#names + 1] = sub end
@@ -726,6 +763,9 @@ SlashCmdList.MOOSEMODE = function(msg)
         return
     elseif cmd == "minimap" then
         ns.ToggleMinimap()
+        return
+    elseif cmd == "icon" then
+        ns.NudgeMinimapIcon(rest)
         return
     elseif cmd == "help" then
         PrintHelp()

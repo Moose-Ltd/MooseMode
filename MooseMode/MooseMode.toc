@@ -3,7 +3,7 @@
 ## Notes: A growing bag of quality-of-life tools for WoW: Forever. Auto-sell junk, fast loot, and more to come.
 ## Author: Moose
 ## Version: 1.1.0
-## IconTexture: Interface\TargetingFrame\UI-RaidTargetingIcon_1
+## IconTexture: Interface\AddOns\MooseMode\media\icon.tga
 ## SavedVariables: MooseModeDB
 ## X-Flavor-Note: 16001 = WoW Forever (1.60.x, _classic_beta_). 120105 = Retail 12.1.5, which shares the same API.
 
