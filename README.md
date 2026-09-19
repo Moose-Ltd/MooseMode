@@ -9,6 +9,7 @@ A growing bag of quality-of-life tools for **World of Warcraft: Forever**. It st
 - **Auto Sell.** Sells every grey item as soon as a vendor window opens and prints what it earned. Hold **Shift** while talking to a vendor to skip selling that visit. Keep and junk lists let you protect a grey item or force-sell a non-grey one.
 - **Fast Loot.** Grabs everything from a corpse the moment the loot is ready.
 - **Auto Quest.** Accepts quests automatically from quest givers, quest lists and gossip windows. Low-level (grey) quests are skipped unless you tick the sub-option. Also picks the gossip option for you when an NPC offers exactly one and no quests. Hold **Shift** while talking to an NPC to skip all of it.
+- **Auto Repair.** Repairs all your gear as soon as a vendor that can repair opens, and prints the cost. Optionally pays from the guild bank when your rank allows it. Warns you if you cannot afford it. Hold **Shift** while talking to the vendor to skip.
 
 ## Install
 
@@ -42,6 +43,7 @@ Then start the game, click **AddOns** on the character select screen and make su
 | `/mm list` | Show the keep and junk lists |
 | `/mm reset` | Clear both lists |
 | `/mm now` | Sell junk at the vendor that is currently open |
+| `/mm repair` | Repair all gear at the vendor that is currently open, whatever the option says |
 
 ## Options
 
@@ -54,6 +56,9 @@ Then start the game, click **AddOns** on the character select screen and make su
 | Auto Quest | Auto accept quests | on |
 | Auto Quest | ↳ Include low-level quests (sub-option, greyed out while the parent is off) | off |
 | Auto Quest | Auto select gossip (only when it is the sole option and there are no quests) | on |
+| Auto Repair | Auto repair at vendors | on |
+| Auto Repair | ↳ Use guild bank funds when allowed (sub-option) | off |
+| Auto Repair | ↳ Show repair cost in chat (sub-option) | on |
 
 ## Layout
 
@@ -65,6 +70,7 @@ MooseMode/
     AutoSell.lua        vendor junk selling
     FastLoot.lua        fast corpse looting
     AutoQuest.lua       quest accepting and gossip automation
+    AutoRepair.lua      gear repair at vendors
 ```
 
 ### Adding a module
