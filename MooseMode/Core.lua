@@ -117,23 +117,278 @@ ns.ToggleMinimap = ns.ToggleMinimap or function() ns.Print("Minimap button not a
 ns.OnInitCallbacks = {}   -- core-level hooks run after ns.db exists
 
 -------------------------------------------------------------------------------
+-- Settings backup in account macros
+--
+-- The Forever beta client writes SavedVariables on logout but never reads
+-- them back at launch (Blizzard bug, confirmed with a pre-seeded file), so
+-- every session would start from defaults. Macros made with CreateMacro do
+-- survive a cold start, so every setting that differs from its default is
+-- also written into one or more account macros named MMcfg1, MMcfg2, ... and
+-- read back when the saved table arrives empty.
+--
+-- Payload: "v1;key=value;key.sub=value;..." with typed values: b1/b0 for
+-- booleans, n<number>, s<string> (';', '=', '%' and newlines percent-escaped).
+-- Each macro body is "/mm cfg" on the first line and a slice of the payload
+-- on the second, so clicking one by accident only prints a note.
+-------------------------------------------------------------------------------
+
+local SV_TAG          = "v1"
+local SV_MACRO_PREFIX = "MMcfg"
+local SV_MACRO_ICON   = "INV_MISC_QUESTIONMARK"
+local SV_MACRO_HEAD   = "/mm cfg\n"
+local SV_CHUNK_MAX    = 255 - #SV_MACRO_HEAD
+local SV_DEBOUNCE     = 2
+
+local svPending, svScheduled, svWarned, svRestored = false, false, false, false
+
+local function OptionByKey(key)
+    for _, mod in ipairs(ns.modules) do
+        for _, opt in ipairs(mod.options) do
+            if opt.key == key then return opt end
+        end
+    end
+    return nil
+end
+
+local function SvEscape(s)
+    return (s:gsub("[%%;=\n]", function(c)
+        return ("%%%02X"):format(c:byte())
+    end))
+end
+
+local function SvUnescape(s)
+    return (s:gsub("%%(%x%x)", function(h) return string.char(tonumber(h, 16)) end))
+end
+
+local function SvEncodeValue(v)
+    local t = type(v)
+    if t == "boolean" then return v and "b1" or "b0" end
+    if t == "number" then return "n" .. tostring(v) end
+    if t == "string" then return "s" .. SvEscape(v) end
+    return nil
+end
+
+local function SvDecodeValue(s)
+    local tag, rest = s:sub(1, 1), s:sub(2)
+    if tag == "b" then return rest == "1" end
+    if tag == "n" then return tonumber(rest) end
+    if tag == "s" then return SvUnescape(rest) end
+    return nil
+end
+
+local function SortedKeys(t)
+    local keys = {}
+    for k in pairs(t) do
+        if type(k) == "string" then keys[#keys + 1] = k end
+    end
+    table.sort(keys)
+    return keys
+end
+
+-- Every scalar in ns.db (and every scalar one level down in a sub-table)
+-- whose value differs from its default. Option keys default to the option's
+-- default; core sub-tables to CORE_DEFAULTS; anything else to nil.
+local function SvSerialize()
+    local parts = { SV_TAG }
+    local db = ns.db
+    for _, k in ipairs(SortedKeys(db)) do
+        local v = db[k]
+        if type(v) == "table" then
+            local defaults = CORE_DEFAULTS[k]
+            for _, k2 in ipairs(SortedKeys(v)) do
+                local v2 = v[k2]
+                if type(v2) ~= "table" then
+                    local default = type(defaults) == "table" and defaults[k2] or nil
+                    local enc = (v2 ~= default) and SvEncodeValue(v2) or nil
+                    if enc then parts[#parts + 1] = k .. "." .. k2 .. "=" .. enc end
+                end
+            end
+        else
+            local opt = OptionByKey(k)
+            local default = opt and opt.default or nil
+            local enc = (v ~= default) and SvEncodeValue(v) or nil
+            if enc then parts[#parts + 1] = k .. "=" .. enc end
+        end
+    end
+    return table.concat(parts, ";")
+end
+
+local function SvApply(db, payload)
+    if not payload or payload:sub(1, #SV_TAG + 1) ~= SV_TAG .. ";" and payload ~= SV_TAG then
+        return 0
+    end
+    local n = 0
+    for entry in payload:gmatch("[^;]+") do
+        local k, raw = entry:match("^([%w_%.]+)=(.*)$")
+        if k then
+            local v = SvDecodeValue(raw)
+            if v ~= nil then
+                local a, b = k:match("^([%w_]+)%.([%w_]+)$")
+                if a then
+                    if type(db[a]) ~= "table" then db[a] = {} end
+                    db[a][b] = v
+                else
+                    db[k] = v
+                end
+                n = n + 1
+            end
+        end
+    end
+    return n
+end
+
+local function SvMacrosAvailable()
+    return type(GetMacroIndexByName) == "function" and type(CreateMacro) == "function"
+       and type(EditMacro) == "function" and type(GetMacroBody) == "function"
+end
+
+-- Concatenate the payload slices of MMcfg1..N, or nil if MMcfg1 is absent.
+local function SvReadMacros()
+    if not SvMacrosAvailable() then return nil end
+    local ok, first = pcall(GetMacroIndexByName, SV_MACRO_PREFIX .. "1")
+    if not ok or not first or first == 0 then return nil end
+    local pieces, i = {}, 1
+    while true do
+        local okI, idx = pcall(GetMacroIndexByName, SV_MACRO_PREFIX .. i)
+        if not okI or not idx or idx == 0 then break end
+        local okB, body = pcall(GetMacroBody, idx)
+        if not okB or type(body) ~= "string" then break end
+        local nl = body:find("\n", 1, true)
+        pieces[#pieces + 1] = nl and body:sub(nl + 1) or ""
+        i = i + 1
+        if i > 40 then break end
+    end
+    return table.concat(pieces)
+end
+
+local function SvWriteMacros()
+    if not SvMacrosAvailable() then return false end
+    local payload = SvSerialize()
+    local chunks = {}
+    for i = 1, #payload, SV_CHUNK_MAX do
+        chunks[#chunks + 1] = payload:sub(i, i + SV_CHUNK_MAX - 1)
+    end
+    if #chunks == 0 then chunks[1] = "" end
+
+    local maxAccount = MAX_ACCOUNT_MACROS or 120
+    for i, chunk in ipairs(chunks) do
+        local name = SV_MACRO_PREFIX .. i
+        local body = SV_MACRO_HEAD .. chunk
+        local idx = GetMacroIndexByName(name) or 0
+        if idx > 0 then
+            if GetMacroBody(idx) ~= body then
+                EditMacro(idx, name, SV_MACRO_ICON, body)
+            end
+        else
+            local account = GetNumMacros and GetNumMacros() or 0
+            if account >= maxAccount then return false end
+            CreateMacro(name, SV_MACRO_ICON, body, false)
+        end
+    end
+    -- Drop slices no longer needed.
+    local j = #chunks + 1
+    while j < 40 do
+        local idx = GetMacroIndexByName(SV_MACRO_PREFIX .. j) or 0
+        if idx == 0 or not DeleteMacro then break end
+        DeleteMacro(idx)
+        j = j + 1
+    end
+    return true
+end
+
+local function SvFlush()
+    svScheduled = false
+    if not svPending or not ns.db then return end
+    if InCombatLockdown and InCombatLockdown() then
+        -- PLAYER_REGEN_ENABLED re-schedules.
+        return
+    end
+    svPending = false
+    local ok, done = pcall(SvWriteMacros)
+    if (not ok or not done) and not svWarned then
+        svWarned = true
+        ns.Print("Could not write the settings backup macro" .. (ok and " (macro slots full?)." or (": " .. tostring(done))))
+    end
+end
+
+-- Modules call this after changing ns.db outside the dialog. Debounced.
+function ns.SaveSettings()
+    if not ns.db then return end
+    svPending = true
+    if svScheduled then return end
+    svScheduled = true
+    if C_Timer and C_Timer.After then
+        C_Timer.After(SV_DEBOUNCE, SvFlush)
+    else
+        SvFlush()
+    end
+end
+
+-- Pull the backup into an empty saved table. Returns true when applied.
+local function SvTryRestore(db)
+    if svRestored then return true end
+    local payload = SvReadMacros()
+    if not payload then return false end
+    local n = SvApply(db, payload)
+    svRestored = true
+    ns.Print(("settings restored from backup (the beta client does not load saved variables yet), %d value%s."):format(n, n == 1 and "" or "s"))
+    return true
+end
+
+-------------------------------------------------------------------------------
 -- Load
 -------------------------------------------------------------------------------
 
+local svNeedsLateRestore = false
+
 local loader = CreateFrame("Frame")
 loader:RegisterEvent("ADDON_LOADED")
+loader:RegisterEvent("PLAYER_LOGIN")
+loader:RegisterEvent("PLAYER_LOGOUT")
+loader:RegisterEvent("PLAYER_REGEN_ENABLED")
 loader:SetScript("OnEvent", function(self, event, name)
-    if name ~= ADDON then return end
-    self:UnregisterEvent("ADDON_LOADED")
+    if event == "ADDON_LOADED" then
+        if name ~= ADDON then return end
+        self:UnregisterEvent("ADDON_LOADED")
 
-    MooseModeDB = MooseModeDB or {}
-    ns.db = MooseModeDB
-    ApplyDefaults(ns.db)
+        MooseModeDB = MooseModeDB or {}
+        ns.db = MooseModeDB
+        if next(ns.db) == nil then
+            -- Nothing loaded: either a fresh install or the client bug.
+            -- The macro API may not answer this early; retry at login.
+            svNeedsLateRestore = not SvTryRestore(ns.db)
+        end
+        ApplyDefaults(ns.db)
 
-    for _, mod in ipairs(ns.modules) do
-        if mod.OnInit then mod.OnInit(mod) end
+        for _, mod in ipairs(ns.modules) do
+            if mod.OnInit then mod.OnInit(mod) end
+        end
+        for _, fn in ipairs(ns.OnInitCallbacks) do fn() end
+
+    elseif event == "PLAYER_LOGIN" then
+        if not ns.db then return end
+        if svNeedsLateRestore then
+            svNeedsLateRestore = false
+            if SvTryRestore(ns.db) then
+                ApplyDefaults(ns.db)
+                for _, mod in ipairs(ns.modules) do
+                    if mod.OnInit and mod.reinitSafe then mod.OnInit(mod) end
+                end
+                if ns.RefreshAfterRestore then ns.RefreshAfterRestore() end
+            end
+        end
+        -- Keep the backup current even when nothing has changed yet.
+        ns.SaveSettings()
+
+    elseif event == "PLAYER_LOGOUT" then
+        if svPending then
+            svScheduled = false
+            SvFlush()
+        end
+
+    elseif event == "PLAYER_REGEN_ENABLED" then
+        if svPending and not svScheduled then ns.SaveSettings() end
     end
-    for _, fn in ipairs(ns.OnInitCallbacks) do fn() end
 end)
 
 -------------------------------------------------------------------------------
@@ -189,6 +444,7 @@ function ns.NudgeMinimapIcon(rest)
         end
     end
     MinimapButton_UpdateIconOffset()
+    ns.SaveSettings()
     ns.Print(("Minimap icon offset: %s, %s"):format(tostring(ns.db.minimap.iconDX), tostring(ns.db.minimap.iconDY)))
 end
 
@@ -234,6 +490,7 @@ local function CreateMinimapButton()
     end)
     b:SetScript("OnDragStop", function(self)
         self:SetScript("OnUpdate", nil)
+        ns.SaveSettings()
     end)
     b:SetScript("OnClick", function(self, button)
         if button == "LeftButton" then
@@ -268,6 +525,7 @@ function ns.ToggleMinimap()
         CreateMinimapButton():Show()
         ns.Print("Minimap button shown.")
     end
+    ns.SaveSettings()
 end
 
 table.insert(ns.OnInitCallbacks, function()
@@ -275,6 +533,19 @@ table.insert(ns.OnInitCallbacks, function()
         CreateMinimapButton():Show()
     end
 end)
+
+-- After a late settings restore (PLAYER_LOGIN), bring the minimap button
+-- in line with the restored values; the dialog part is added further down.
+local function MinimapRefreshAfterRestore()
+    if ns.db.minimap.hide then
+        if minimapButton then minimapButton:Hide() end
+    else
+        local b = CreateMinimapButton()
+        MinimapButton_UpdatePosition()
+        MinimapButton_UpdateIconOffset(b)
+        b:Show()
+    end
+end
 
 -------------------------------------------------------------------------------
 -- Options dialog
@@ -367,6 +638,7 @@ local function Checkbox_OnClick(self)
         self.option.onChange(checked, self.option)
     end
     Controls_UpdateEnabled()
+    ns.SaveSettings()
 end
 
 -- Options in display order: each top-level option followed by its children
@@ -546,6 +818,7 @@ local function Choice_Select(seg, value)
         seg.option.onChange(value, seg.option)
     end
     Controls_UpdateEnabled()
+    ns.SaveSettings()
 end
 
 local function CreateChoiceRow(parent, opt, width)
@@ -966,6 +1239,7 @@ local function BuildOptionsDialog()
         if cx and ux then
             ns.db.optionsPos.x = math.floor(cx - ux + 0.5)
             ns.db.optionsPos.y = math.floor(cy - uy + 0.5)
+            ns.SaveSettings()
         end
     end)
 
@@ -1038,6 +1312,16 @@ function ns.ToggleOptions()
     if f:IsShown() then f:Hide() else f:Show() end
 end
 
+function ns.RefreshAfterRestore()
+    MinimapRefreshAfterRestore()
+    if optionsFrame then
+        for _, c in ipairs(controls) do c:Refresh() end
+        local pos = ns.db.optionsPos or {}
+        optionsFrame:ClearAllPoints()
+        optionsFrame:SetPoint("CENTER", UIParent, "CENTER", pos.x or 0, pos.y or 0)
+    end
+end
+
 -------------------------------------------------------------------------------
 -- Slash commands
 -------------------------------------------------------------------------------
@@ -1074,6 +1358,9 @@ SlashCmdList.MOOSEMODE = function(msg)
         return
     elseif cmd == "help" then
         PrintHelp()
+        return
+    elseif cmd == "cfg" then
+        ns.Print("MooseMode settings backup macro. Leave the MMcfg macros alone; they are rewritten automatically.")
         return
     end
 
