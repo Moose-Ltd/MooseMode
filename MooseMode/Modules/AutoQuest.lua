@@ -11,6 +11,7 @@
 -- Options (account-wide):
 --   autoQuest           Auto accept quests
 --   autoQuestLowLevel   Include low-level quests (sub-option)
+--   autoQuestSkipBelowLevel  Also skip quests below the player's level (sub-option)
 --   autoQuestTurnIn     Auto complete quest hand-ins (sub-option)
 --   autoGossip          Auto select gossip when it is the only option
 --   autoQuestDebug      Log every event and decision to chat (sub-option)
@@ -94,6 +95,8 @@ local function IsLowLevel(questID, apiFlag)
     if not qlvl or not plvl then return false end
     local range = TrivialRange(plvl)
     if range and qlvl <= plvl - range then return true end
+    -- Stricter rule: anything below the player's level (green) counts too.
+    if ns.db.autoQuestSkipBelowLevel and qlvl < plvl then return true end
     return false
 end
 
@@ -441,6 +444,8 @@ ns:RegisterModule({
           tooltip = "Accept quests automatically from quest givers. Low-level (grey) quests are skipped unless the sub-option below is on. Hold Shift while talking to an NPC to skip." },
         { key = "autoQuestLowLevel", label = "Include low-level quests", default = false, parent = "autoQuest",
           tooltip = "Also accept quests that are trivial (grey) for your level." },
+        { key = "autoQuestSkipBelowLevel", label = "Also skip quests below my level (green)", default = false, parent = "autoQuest",
+          tooltip = "Treat any quest whose level is below yours as low level, not just grey ones. Has no effect while 'Include low-level quests' is ticked." },
         { key = "autoQuestTurnIn", label = "Auto complete quest hand-ins", default = true, parent = "autoQuest",
           tooltip = "Hand in completed quests automatically and pick up any follow-up. If a quest offers more than one reward to choose from, the window stays open so you can pick." },
         { key = "autoGossip", label = "Auto select gossip", default = true,
