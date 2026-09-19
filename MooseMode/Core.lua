@@ -229,18 +229,33 @@ table.insert(ns.OnInitCallbacks, function()
 end)
 
 -------------------------------------------------------------------------------
--- Options panel
+-- Options dialog
+--
+-- A centred settings window: title bar, two balanced columns of sections
+-- (one per module, header + separator + rows), and a footer. Labels wrap
+-- instead of truncating. Sub-options (opt.parent) indent and grey out with
+-- their parent. Everything persists per account through ns.db.
 -------------------------------------------------------------------------------
 
-local PANEL_WIDTH   = 280
-local PANEL_PAD     = 16
-local ROW_HEIGHT    = 26
-local HEADER_HEIGHT = 22
-local TITLE_HEIGHT  = 36
+local DIALOG_WIDTH    = 640
+local DIALOG_PAD      = 20
+local COLUMN_GAP      = 24
+local TITLE_HEIGHT    = 44
+local FOOTER_HEIGHT   = 30
+local SECTION_GAP     = 14
+local HEADER_HEIGHT   = 20
+local ROW_MIN_HEIGHT  = 24
+local CHECK_SIZE      = 24
+local SUB_INDENT      = 22
+local LABEL_GAP       = 4
+local BORDER_INSET    = 4
+local MAX_SCREEN_FRAC = 0.8
+local SCROLL_STEP     = 40
+
+local PURPLE_R, PURPLE_G, PURPLE_B = 0.69, 0.3, 1.0
 
 local optionsFrame
 local checkboxes = {}   -- CheckButtons, each with .option and .label
-local SUB_INDENT = 20   -- extra x offset for options that declare parent = "<key>"
 
 -- A sub-option (opt.parent = "<optionKey>") is greyed out and unclickable
 -- while its parent option is off.
@@ -299,18 +314,28 @@ local function OrderedOptions(mod)
     return ordered
 end
 
-local function Checkbox_OnEnter(self)
-    if not self.option.tooltip then return end
-    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-    GameTooltip:AddLine(self.option.label, 1, 1, 1)
-    GameTooltip:AddLine(self.option.tooltip, nil, nil, nil, true)
+local function ShowOptionTooltip(owner, opt)
+    if not opt.tooltip then return end
+    GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
+    GameTooltip:AddLine(opt.label, 1, 1, 1)
+    GameTooltip:AddLine(opt.tooltip, nil, nil, nil, true)
     GameTooltip:Show()
+end
+
+local function HideTooltip()
+    GameTooltip:Hide()
+end
+
+-- Solid colour texture; no file dependency.
+local function Solid(parent, layer, r, g, b, a)
+    local t = parent:CreateTexture(nil, layer or "ARTWORK")
+    t:SetColorTexture(r, g, b, a)
+    return t
 end
 
 local function CreateCloseButton(parent)
     local b = CreateFrame("Button", nil, parent)
     b:SetSize(32, 32)
-    b:SetPoint("TOPRIGHT", -2, -2)
     b:SetNormalTexture("Interface\\Buttons\\UI-Panel-MinimizeButton-Up")
     b:SetPushedTexture("Interface\\Buttons\\UI-Panel-MinimizeButton-Down")
     b:SetHighlightTexture("Interface\\Buttons\\UI-Panel-MinimizeButton-Highlight", "ADD")
@@ -318,90 +343,251 @@ local function CreateCloseButton(parent)
     return b
 end
 
-local function BuildOptionsPanel()
+-- One option: a row frame holding the checkbox and a wrapping label. The row
+-- itself answers hover (tooltip) and click (toggle) so the label is live too.
+local function CreateOptionRow(parent, opt, width)
+    local indent = opt.parent and SUB_INDENT or 0
+
+    local row = CreateFrame("Frame", nil, parent)
+    row:SetWidth(width)
+    row:EnableMouse(true)
+
+    local cb = CreateFrame("CheckButton", nil, row, "ChatConfigCheckButtonTemplate")
+    cb:SetSize(CHECK_SIZE, CHECK_SIZE)
+    cb:SetPoint("TOPLEFT", row, "TOPLEFT", indent, 0)
+    cb.option = opt
+    -- The template ships its own text region; we use our own label so the
+    -- layout does not depend on template internals.
+    if cb.Text then cb.Text:SetText("") end
+
+    local label = row:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    label:SetWidth(width - indent - CHECK_SIZE - LABEL_GAP)
+    label:SetJustifyH("LEFT")
+    label:SetJustifyV("TOP")
+    label:SetWordWrap(true)
+    label:SetNonSpaceWrap(false)
+    label:SetText(opt.label)
+    cb.label = label
+
+    local textHeight = label:GetStringHeight() or 0
+    if textHeight <= 16 then
+        -- Single line: centre it on the box.
+        label:SetPoint("LEFT", cb, "RIGHT", LABEL_GAP, 0)
+        row:SetHeight(ROW_MIN_HEIGHT)
+    else
+        -- Wrapped: hang from the top of the box and let the row grow.
+        label:SetPoint("TOPLEFT", cb, "TOPRIGHT", LABEL_GAP, -4)
+        row:SetHeight(math.max(ROW_MIN_HEIGHT, textHeight + 8))
+    end
+
+    cb:SetScript("OnClick", Checkbox_OnClick)
+    cb:SetScript("OnEnter", function(self) ShowOptionTooltip(self, self.option) end)
+    cb:SetScript("OnLeave", HideTooltip)
+
+    row:SetScript("OnEnter", function(self) ShowOptionTooltip(self, opt) end)
+    row:SetScript("OnLeave", HideTooltip)
+    row:SetScript("OnMouseUp", function(self, button)
+        if button == "LeftButton" and cb:IsEnabled() then cb:Click() end
+    end)
+
+    checkboxes[#checkboxes + 1] = cb
+    return row
+end
+
+-- One module: purple header, hairline, then its option rows.
+local function CreateSection(parent, mod, width)
+    local sec = CreateFrame("Frame", nil, parent)
+    sec:SetWidth(width)
+
+    local header = sec:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    header:SetPoint("TOPLEFT", 0, 0)
+    header:SetTextColor(PURPLE_R, PURPLE_G, PURPLE_B)
+    header:SetText(mod.label or mod.key)
+
+    local line = Solid(sec, "ARTWORK", PURPLE_R, PURPLE_G, PURPLE_B, 0.35)
+    line:SetHeight(1)
+    line:SetPoint("TOPLEFT", 0, -HEADER_HEIGHT)
+    line:SetPoint("TOPRIGHT", 0, -HEADER_HEIGHT)
+
+    local y = -(HEADER_HEIGHT + 6)
+    for _, opt in ipairs(OrderedOptions(mod)) do
+        local row = CreateOptionRow(sec, opt, width)
+        row:SetPoint("TOPLEFT", 0, y)
+        y = y - row:GetHeight()
+    end
+    sec:SetHeight(-y)
+    return sec
+end
+
+-- Lays every module section into the shorter of two columns. Returns the
+-- body frame and its natural height.
+local function CreateBody(parent, bodyWidth)
+    local body = CreateFrame("Frame", nil, parent)
+    body:SetWidth(bodyWidth)
+
+    local colWidth = (bodyWidth - COLUMN_GAP) / 2
+    local heights = { 0, 0 }
+    local placed = 0
+    for _, mod in ipairs(ns.modules) do
+        if #mod.options > 0 then
+            local col = (heights[1] <= heights[2]) and 1 or 2
+            local sec = CreateSection(body, mod, colWidth)
+            sec:SetPoint("TOPLEFT", body, "TOPLEFT", (col - 1) * (colWidth + COLUMN_GAP), -heights[col])
+            heights[col] = heights[col] + sec:GetHeight() + SECTION_GAP
+            placed = placed + 1
+        end
+    end
+
+    local height
+    if placed == 0 then
+        local none = body:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+        none:SetPoint("TOPLEFT", 0, 0)
+        none:SetText("No options registered.")
+        height = ROW_MIN_HEIGHT
+    else
+        height = math.max(heights[1], heights[2]) - SECTION_GAP
+    end
+    body:SetHeight(height)
+    return body, height
+end
+
+-- Wraps the body in a mouse-wheel scroll frame with a slim indicator when it
+-- would not fit on screen.
+local function CreateScroller(parent, body, bodyWidth, viewHeight)
+    local scroll = CreateFrame("ScrollFrame", nil, parent)
+    scroll:SetSize(bodyWidth, viewHeight)
+    scroll:SetScrollChild(body)
+    scroll:EnableMouseWheel(true)
+
+    local track = Solid(parent, "ARTWORK", 1, 1, 1, 0.08)
+    track:SetWidth(3)
+    track:SetPoint("TOPLEFT", scroll, "TOPRIGHT", 8, 0)
+    track:SetPoint("BOTTOMLEFT", scroll, "BOTTOMRIGHT", 8, 0)
+
+    local thumb = Solid(parent, "OVERLAY", PURPLE_R, PURPLE_G, PURPLE_B, 0.7)
+    thumb:SetWidth(3)
+
+    local function UpdateThumb()
+        local range = scroll:GetVerticalScrollRange()
+        local total = viewHeight + range
+        local thumbHeight = math.max(16, viewHeight * (viewHeight / total))
+        local offset = (range > 0) and ((viewHeight - thumbHeight) * (scroll:GetVerticalScroll() / range)) or 0
+        thumb:SetHeight(thumbHeight)
+        thumb:ClearAllPoints()
+        thumb:SetPoint("TOP", track, "TOP", 0, -offset)
+    end
+
+    scroll:SetScript("OnMouseWheel", function(self, delta)
+        local target = self:GetVerticalScroll() - delta * SCROLL_STEP
+        target = math.max(0, math.min(self:GetVerticalScrollRange(), target))
+        self:SetVerticalScroll(target)
+    end)
+    scroll:SetScript("OnVerticalScroll", UpdateThumb)
+    scroll:SetScript("OnScrollRangeChanged", UpdateThumb)
+    scroll:SetScript("OnShow", UpdateThumb)
+    return scroll
+end
+
+local function AddonVersion()
+    local v
+    if C_AddOns and C_AddOns.GetAddOnMetadata then
+        v = C_AddOns.GetAddOnMetadata(ADDON, "Version")
+    elseif GetAddOnMetadata then
+        v = GetAddOnMetadata(ADDON, "Version")
+    end
+    return v and ("v" .. v) or ""
+end
+
+local function BuildOptionsDialog()
     if optionsFrame then return optionsFrame end
 
     local f = CreateFrame("Frame", "MooseModeOptionsFrame", UIParent, "BackdropTemplate")
-    f:SetWidth(PANEL_WIDTH)
+    f:SetWidth(DIALOG_WIDTH)
     f:SetFrameStrata("DIALOG")
     f:SetBackdrop({
-        bgFile   = "Interface\\DialogFrame\\UI-DialogBox-Background",
+        bgFile   = "Interface\\Buttons\\WHITE8X8",
         edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-        tile = true, tileSize = 32, edgeSize = 16,
-        insets = { left = 4, right = 4, top = 4, bottom = 4 },
+        tile = false, edgeSize = 14,
+        insets = { left = BORDER_INSET, right = BORDER_INSET, top = BORDER_INSET, bottom = BORDER_INSET },
     })
+    f:SetBackdropColor(0.06, 0.04, 0.09, 0.95)
+    f:SetBackdropBorderColor(0.55, 0.3, 0.9)
     f:SetMovable(true)
     f:SetClampedToScreen(true)
     f:EnableMouse(true)
-    f:RegisterForDrag("LeftButton")
-    f:SetScript("OnDragStart", f.StartMoving)
-    f:SetScript("OnDragStop", f.StopMovingOrSizing)
     f:Hide()
 
     -- Escape closes it.
     tinsert(UISpecialFrames, "MooseModeOptionsFrame")
 
-    local title = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    title:SetPoint("TOP", 0, -12)
-    title:SetText("|cffb04cffMooseMode|r")
+    -- Title bar: tinted strip, title, version hint, close button. Dragging it
+    -- moves the dialog.
+    local titleBar = CreateFrame("Frame", nil, f)
+    titleBar:SetHeight(TITLE_HEIGHT)
+    titleBar:SetPoint("TOPLEFT", BORDER_INSET, -BORDER_INSET)
+    titleBar:SetPoint("TOPRIGHT", -BORDER_INSET, -BORDER_INSET)
+    titleBar:EnableMouse(true)
+    titleBar:RegisterForDrag("LeftButton")
+    titleBar:SetScript("OnDragStart", function() f:StartMoving() end)
+    titleBar:SetScript("OnDragStop", function() f:StopMovingOrSizing() end)
 
-    CreateCloseButton(f)
+    local strip = Solid(titleBar, "BACKGROUND", 0.55, 0.3, 0.9, 0.25)
+    strip:SetAllPoints()
 
-    -- Content: one header per module, one checkbox per option.
-    local y = -TITLE_HEIGHT
-    for _, mod in ipairs(ns.modules) do
-        if #mod.options > 0 then
-            local header = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-            header:SetPoint("TOPLEFT", PANEL_PAD, y - 4)
-            header:SetTextColor(0.7, 0.3, 1.0)
-            header:SetText(mod.label or mod.key)
-            y = y - HEADER_HEIGHT
+    local stripLine = Solid(titleBar, "ARTWORK", PURPLE_R, PURPLE_G, PURPLE_B, 0.5)
+    stripLine:SetHeight(1)
+    stripLine:SetPoint("BOTTOMLEFT")
+    stripLine:SetPoint("BOTTOMRIGHT")
 
-            for _, opt in ipairs(OrderedOptions(mod)) do
-                local cb = CreateFrame("CheckButton", nil, f, "ChatConfigCheckButtonTemplate")
-                cb:SetSize(26, 26)
-                cb:SetPoint("TOPLEFT", PANEL_PAD + (opt.parent and SUB_INDENT or 0), y)
-                cb.option = opt
-                -- The template ships its own text region; we use our own label
-                -- so layout does not depend on template internals.
-                if cb.Text then cb.Text:SetText("") end
-                local label = cb:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-                label:SetPoint("LEFT", cb, "RIGHT", 4, 0)
-                label:SetPoint("RIGHT", f, "RIGHT", -PANEL_PAD, 0)
-                label:SetJustifyH("LEFT")
-                label:SetWordWrap(false)
-                label:SetText(opt.label)
-                cb.label = label
+    local title = titleBar:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    title:SetPoint("LEFT", DIALOG_PAD - BORDER_INSET, 0)
+    title:SetTextColor(PURPLE_R, PURPLE_G, PURPLE_B)
+    title:SetText("MooseMode")
 
-                cb:SetScript("OnClick", Checkbox_OnClick)
-                cb:SetScript("OnEnter", Checkbox_OnEnter)
-                cb:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    local subtitle = titleBar:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    subtitle:SetPoint("LEFT", title, "RIGHT", 10, -1)
+    local version = AddonVersion()
+    subtitle:SetText(version ~= "" and (version .. "   /mm or /moose") or "/mm or /moose")
 
-                checkboxes[#checkboxes + 1] = cb
-                y = y - ROW_HEIGHT
-            end
-            y = y - 6
-        end
+    local close = CreateCloseButton(f)
+    close:SetPoint("TOPRIGHT", titleBar, "TOPRIGHT", 2, 6)
+
+    -- Body, scrolled only when it would not fit on screen.
+    local bodyWidth = DIALOG_WIDTH - 2 * DIALOG_PAD
+    local body, bodyHeight = CreateBody(f, bodyWidth)
+    local chrome = TITLE_HEIGHT + FOOTER_HEIGHT + 2 * DIALOG_PAD + 2 * BORDER_INSET
+    local maxBody = math.floor(UIParent:GetHeight() * MAX_SCREEN_FRAC) - chrome
+    local viewHeight = bodyHeight
+    local bodyAnchor = body
+    if bodyHeight > maxBody then
+        viewHeight = maxBody
+        bodyAnchor = CreateScroller(f, body, bodyWidth, viewHeight)
     end
-    if #checkboxes == 0 then
-        local none = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-        none:SetPoint("TOPLEFT", PANEL_PAD, y - 4)
-        none:SetText("No options registered.")
-        y = y - ROW_HEIGHT
-    end
-    f:SetHeight(-y + PANEL_PAD)
+    bodyAnchor:SetPoint("TOPLEFT", f, "TOPLEFT", DIALOG_PAD, -(BORDER_INSET + TITLE_HEIGHT + DIALOG_PAD))
+
+    -- Footer.
+    local footerLine = Solid(f, "ARTWORK", PURPLE_R, PURPLE_G, PURPLE_B, 0.35)
+    footerLine:SetHeight(1)
+    footerLine:SetPoint("BOTTOMLEFT", DIALOG_PAD, BORDER_INSET + FOOTER_HEIGHT)
+    footerLine:SetPoint("BOTTOMRIGHT", -DIALOG_PAD, BORDER_INSET + FOOTER_HEIGHT)
+
+    local footerLeft = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    footerLeft:SetPoint("BOTTOMLEFT", DIALOG_PAD, BORDER_INSET + (FOOTER_HEIGHT - 12) / 2)
+    footerLeft:SetJustifyH("LEFT")
+    footerLeft:SetText("Settings are saved for the whole account.")
+
+    local footerRight = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    footerRight:SetPoint("BOTTOMRIGHT", -DIALOG_PAD, BORDER_INSET + (FOOTER_HEIGHT - 12) / 2)
+    footerRight:SetJustifyH("RIGHT")
+    footerRight:SetText("Hold Shift at an NPC or vendor to skip automation once.")
+
+    f:SetHeight(chrome + viewHeight)
 
     f:SetScript("OnShow", function()
         for _, cb in ipairs(checkboxes) do Checkbox_Refresh(cb) end
     end)
 
-    -- Initial anchor: just below the minimap button, else screen centre.
-    local mb = ns.GetMinimapButton and ns.GetMinimapButton()
-    if mb then
-        f:SetPoint("TOPRIGHT", mb, "BOTTOMLEFT", 8, -4)
-    else
-        f:SetPoint("CENTER")
-    end
+    f:SetPoint("CENTER")
 
     optionsFrame = f
     return f
@@ -409,7 +595,7 @@ end
 
 function ns.ToggleOptions()
     if not ns.db then return end
-    local f = BuildOptionsPanel()
+    local f = BuildOptionsDialog()
     if f:IsShown() then f:Hide() else f:Show() end
 end
 
@@ -418,7 +604,7 @@ end
 -------------------------------------------------------------------------------
 
 local function PrintHelp()
-    ns.Print("/mm  opens the options panel.  /mm minimap  toggles the minimap button.")
+    ns.Print("/mm or /moose  opens the options dialog.  /mm minimap  toggles the minimap button.")
     for _, mod in ipairs(ns.modules) do
         local names = {}
         for sub in pairs(mod.commands) do names[#names + 1] = sub end
@@ -431,6 +617,7 @@ end
 
 SLASH_MOOSEMODE1 = "/moosemode"
 SLASH_MOOSEMODE2 = "/mm"
+SLASH_MOOSEMODE3 = "/moose"
 SlashCmdList.MOOSEMODE = function(msg)
     if not ns.db then return end
     msg = (msg or ""):gsub("^%s+", ""):gsub("%s+$", "")
