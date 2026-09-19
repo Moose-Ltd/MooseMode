@@ -13,3 +13,4 @@ Modules\FastLoot.lua
 Modules\AutoQuest.lua
 Modules\AutoRepair.lua
 Modules\OneBag.lua
+Modules\BetaTweaks.lua
