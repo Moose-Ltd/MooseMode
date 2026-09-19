@@ -108,10 +108,13 @@ local function DifficultyColour(qlvl, plvl)
                    and math.abs(entry.b - b) < 0.02
             end
             if named then
+                -- Blizzard names: trivial=grey, standard=green,
+                -- difficult=yellow, verydifficult=orange, impossible=red.
                 if same(named.trivial)       then return "grey" end
-                if same(named.standard)      then return "yellow" end
-                if same(named.difficult)     then return "orange" end
-                if same(named.verydifficult) then return "red" end
+                if same(named.standard)      then return "green" end
+                if same(named.difficult)     then return "yellow" end
+                if same(named.verydifficult) then return "orange" end
+                if same(named.impossible)    then return "red" end
             end
             if g > 0.8 and r < 0.3 then return "green" end
             if r > 0.8 and g > 0.8 then return "yellow" end
