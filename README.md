@@ -8,6 +8,7 @@ A growing bag of quality-of-life tools for **World of Warcraft: Forever**. It st
 - **Options panel.** Every module's settings as tick boxes. Settings are saved per account, so every character shares them.
 - **Auto Sell.** Sells every grey item as soon as a vendor window opens and prints what it earned. Hold **Shift** while talking to a vendor to skip selling that visit. Keep and junk lists let you protect a grey item or force-sell a non-grey one.
 - **Fast Loot.** Grabs everything from a corpse the moment the loot is ready.
+- **Auto Quest.** Accepts quests automatically from quest givers, quest lists and gossip windows. Low-level (grey) quests are skipped unless you tick the sub-option. Also picks the gossip option for you when an NPC offers exactly one and no quests. Hold **Shift** while talking to an NPC to skip all of it.
 
 ## Install
 
@@ -50,6 +51,9 @@ Then start the game, click **AddOns** on the character select screen and make su
 | Auto Sell | Show sale summary in chat | on |
 | Auto Sell | Use Blizzard's sell-all-junk (ignores keep/junk lists) | off |
 | Fast Loot | Fast loot corpses | on |
+| Auto Quest | Auto accept quests | on |
+| Auto Quest | ↳ Include low-level quests (sub-option, greyed out while the parent is off) | off |
+| Auto Quest | Auto select gossip (only when it is the sole option and there are no quests) | on |
 
 ## Layout
 
@@ -60,6 +64,7 @@ MooseMode/
   Modules/
     AutoSell.lua        vendor junk selling
     FastLoot.lua        fast corpse looting
+    AutoQuest.lua       quest accepting and gossip automation
 ```
 
 ### Adding a module
@@ -75,6 +80,8 @@ ns:RegisterModule({
     options = {
         { key = "yourThing", label = "Do the thing", default = true,
           tooltip = "Shown on hover.", onChange = function(checked) end },
+        { key = "yourThingExtra", label = "Do it harder", default = false,
+          parent = "yourThing" },              -- sub-option: indented, greyed out while parent is off
     },
     OnInit   = function(mod) end,              -- ns.db exists here
     commands = { thing = function(rest) end }, -- /mm thing <rest>
