@@ -142,6 +142,17 @@ local function SkipReason()
     return IsShiftKeyDown() and "shift held" or "option off"
 end
 
+-- One debug fragment describing why a quest is (or is not) low level:
+-- the API flag, quest level, player level, grey threshold and the verdict.
+local function LevelInfo(questID, apiFlag)
+    if apiFlag == nil then apiFlag = ApiTrivial(questID) end
+    local qlvl, plvl = QuestLevel(questID), PlayerLevel()
+    local range = TrivialRange(plvl)
+    local greyAt = (plvl and range) and (plvl - range) or nil
+    return ("trivial=%s qlvl=%s plvl=%s grey<=%s low=%s"):format(
+        Str(apiFlag), Str(qlvl), Str(plvl), Str(greyAt), Str(IsLowLevel(questID, apiFlag)))
+end
+
 -- When a list window (greeting or gossip) re-opens within a whisker of our
 -- last accept / reward call, the client can still be tearing down the
 -- previous quest frame and a select issued right now can be dropped. In that
@@ -185,8 +196,8 @@ end
 local function OnQuestDetail()
     local questID = GetQuestID()
     local autoAccept = QuestGetAutoAccept()
-    Debug("QUEST_DETAIL quest %s autoAccept=%s onQuest=%s trivial=%s lowLevel=%s",
-        Str(questID), Str(autoAccept), Str(IsOnQuest(questID)), Str(ApiTrivial(questID)), Str(IsLowLevel(questID)))
+    Debug("QUEST_DETAIL quest %s %s autoAccept=%s onQuest=%s %s",
+        Str(questID), Str(GetTitleText and GetTitleText() or nil), Str(autoAccept), Str(IsOnQuest(questID)), LevelInfo(questID))
     if not Enabled("autoQuest") then Debug("skipped: %s", SkipReason()) return end
 
     if autoAccept then
@@ -216,8 +227,7 @@ local function AcceptGreetingQuest()
     -- isLegendary, questID, ... (Blizzard QuestFrame.lua)
     for i = 1, n do
         local isTrivial, _, _, _, questID = GetAvailableQuestInfo(i)
-        Debug("  available %d: quest %s %s trivial=%s lowLevel=%s", i, Str(questID), Str(GetAvailableTitle(i)),
-            Str(isTrivial), Str(IsLowLevel(questID, isTrivial)))
+        Debug("  available %d: quest %s %s %s", i, Str(questID), Str(GetAvailableTitle(i)), LevelInfo(questID, isTrivial))
     end
     if not Enabled("autoQuest") then Debug("skipped: %s", SkipReason()) return false end
     for i = 1, n do
@@ -238,8 +248,7 @@ local function AcceptGossipQuest()
     Debug("gossip: %d available", CountTable(quests))
     if type(quests) ~= "table" then return false end
     for i, q in ipairs(quests) do
-        Debug("  available %d: quest %s %s trivial=%s lowLevel=%s", i, Str(q.questID), Str(q.title),
-            Str(q.isTrivial), Str(IsLowLevel(q.questID, q.isTrivial)))
+        Debug("  available %d: quest %s %s %s", i, Str(q.questID), Str(q.title), LevelInfo(q.questID, q.isTrivial))
     end
     if not Enabled("autoQuest") then Debug("skipped: %s", SkipReason()) return false end
     for _, q in ipairs(quests) do
