@@ -289,7 +289,7 @@ end)
 local DIALOG_WIDTH    = 640
 local DIALOG_PAD      = 20
 local COLUMN_GAP      = 24
-local TITLE_HEIGHT    = 56   -- room for the header plaque and the hint under it
+local TITLE_HEIGHT    = 44
 local FOOTER_HEIGHT   = 30
 local SECTION_GAP     = 14
 local HEADER_HEIGHT   = 20
@@ -303,35 +303,18 @@ local BUTTON_GAP      = 6
 local CHOICE_HEIGHT   = 20
 local CHOICE_MIN_WIDTH = 60
 local CHOICE_LABEL_INSET = 4   -- lines choice labels up with checkbox labels
-local BORDER_INSET    = 11   -- UI-DialogBox-Border is 32px with an 11px inset
+local BORDER_INSET    = 4
 local MAX_SCREEN_FRAC = 0.8
 local SCROLL_STEP     = 40
 
 local GROUP_ORDER        = { "Vendors", "Quests", "Loot", "Combat", "Interface" }
 local GROUP_OTHER        = "Other"
 local GROUP_HEADER_HEIGHT = 24
-local GROUP_RULE         = 8   -- height of the divider artwork
+local GROUP_RULE         = 2
 local GROUP_HEADER_GAP   = 10
 local GROUP_GAP          = 18
 
 local PURPLE_R, PURPLE_G, PURPLE_B = 0.69, 0.3, 1.0
-local GOLD_R, GOLD_G, GOLD_B       = 0.9, 0.75, 0.35
-
--- Classic Blizzard dialog artwork.
-local DIALOG_BG      = "Interface\\DialogFrame\\UI-DialogBox-Background"
-local DIALOG_EDGE    = "Interface\\DialogFrame\\UI-DialogBox-Border"
-local DIALOG_HEADER  = "Interface\\DialogFrame\\UI-DialogBox-Header"
-local DIALOG_DIVIDER = "Interface\\DialogFrame\\UI-DialogBox-Divider"
-
--- The ornamental divider strip, trimmed of its flourished ends so it can
--- span any width.
-local function Divider(parent, layer, alpha)
-    local t = parent:CreateTexture(nil, layer or "ARTWORK")
-    t:SetTexture(DIALOG_DIVIDER)
-    t:SetTexCoord(0.09, 0.91, 0, 1)
-    t:SetAlpha(alpha or 1)
-    return t
-end
 
 local optionsFrame
 local controls = {}     -- checkbox and choice controls, each with .option
@@ -450,6 +433,8 @@ local function CreateCloseButton(titleBar, dialog)
     b:SetNormalTexture("Interface\\Buttons\\UI-Panel-MinimizeButton-Up")
     b:SetPushedTexture("Interface\\Buttons\\UI-Panel-MinimizeButton-Down")
     b:SetHighlightTexture("Interface\\Buttons\\UI-Panel-MinimizeButton-Highlight", "ADD")
+    local hl = b:GetHighlightTexture()
+    if hl then hl:SetVertexColor(1, 0.45, 0.45) end
     b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     b:SetScript("OnClick", function() dialog:Hide() end)
     return b
@@ -525,10 +510,10 @@ local function Choice_Update(seg)
             end
         else
             if on then
-                b.bg:SetColorTexture(0.1, 0.08, 0.06, 0.8)
-                b.text:SetTextColor(0.8, 0.8, 0.8)
+                b.bg:SetColorTexture(0.2, 0.15, 0.3, 0.5)
+                b.text:SetTextColor(0.7, 0.7, 0.7)
             else
-                b.bg:SetColorTexture(0.1, 0.08, 0.06, 0.4)
+                b.bg:SetColorTexture(0.2, 0.15, 0.3, 0.25)
                 b.text:SetTextColor(0.4, 0.4, 0.4)
             end
         end
@@ -589,17 +574,7 @@ local function CreateChoiceRow(parent, opt, width)
 
         b.bg = b:CreateTexture(nil, "BACKGROUND")
         b.bg:SetAllPoints()
-        b.bg:SetColorTexture(0.1, 0.08, 0.06, 0.8)
-
-        -- Thin gold frame around each segment.
-        local top = Solid(b, "BORDER", GOLD_R, GOLD_G, GOLD_B, 0.6)
-        top:SetHeight(1); top:SetPoint("TOPLEFT"); top:SetPoint("TOPRIGHT")
-        local bottom = Solid(b, "BORDER", GOLD_R, GOLD_G, GOLD_B, 0.6)
-        bottom:SetHeight(1); bottom:SetPoint("BOTTOMLEFT"); bottom:SetPoint("BOTTOMRIGHT")
-        local left = Solid(b, "BORDER", GOLD_R, GOLD_G, GOLD_B, 0.6)
-        left:SetWidth(1); left:SetPoint("TOPLEFT"); left:SetPoint("BOTTOMLEFT")
-        local right = Solid(b, "BORDER", GOLD_R, GOLD_G, GOLD_B, 0.6)
-        right:SetWidth(1); right:SetPoint("TOPRIGHT"); right:SetPoint("BOTTOMRIGHT")
+        b.bg:SetColorTexture(0.2, 0.15, 0.3, 0.5)
 
         b.text = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         b.text:SetPoint("CENTER")
@@ -608,7 +583,7 @@ local function CreateChoiceRow(parent, opt, width)
         b:SetWidth(w)
 
         if prev then
-            local line = Solid(seg, "ARTWORK", GOLD_R, GOLD_G, GOLD_B, 0.6)
+            local line = Solid(seg, "ARTWORK", PURPLE_R, PURPLE_G, PURPLE_B, 0.35)
             line:SetSize(1, CHOICE_HEIGHT)
             line:SetPoint("LEFT", prev, "RIGHT", 0, 0)
             b:SetPoint("LEFT", prev, "RIGHT", 1, 0)
@@ -622,7 +597,7 @@ local function CreateChoiceRow(parent, opt, width)
         b:SetScript("OnClick", function(self) Choice_Select(seg, self.value) end)
         b:SetScript("OnEnter", function(self)
             if seg.enabled and ns.db[opt.key] ~= self.value then
-                self.bg:SetColorTexture(0.22, 0.17, 0.12, 0.85)
+                self.bg:SetColorTexture(0.35, 0.22, 0.5, 0.7)
             end
             ShowOptionTooltip(self, opt)
         end)
@@ -728,16 +703,17 @@ local function CreateNoteRow(parent, opt, width)
     return row
 end
 
--- One module: gold header, thin gold rule, then its option rows.
+-- One module: purple header, hairline, then its option rows.
 local function CreateSection(parent, mod, width)
     local sec = CreateFrame("Frame", nil, parent)
     sec:SetWidth(width)
 
     local header = sec:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     header:SetPoint("TOPLEFT", 0, 0)
+    header:SetTextColor(PURPLE_R, PURPLE_G, PURPLE_B)
     header:SetText(mod.label or mod.key)
 
-    local line = Solid(sec, "ARTWORK", GOLD_R, GOLD_G, GOLD_B, 0.35)
+    local line = Solid(sec, "ARTWORK", PURPLE_R, PURPLE_G, PURPLE_B, 0.35)
     line:SetHeight(1)
     line:SetPoint("TOPLEFT", 0, -HEADER_HEIGHT)
     line:SetPoint("TOPRIGHT", 0, -HEADER_HEIGHT)
@@ -778,17 +754,18 @@ local function CreateSection(parent, mod, width)
     return sec
 end
 
--- One group: a large gold heading over the classic divider artwork, then its
--- module sections stacked with the usual section gap.
+-- One group: a large uppercase purple heading, a 2px rule, then its module
+-- sections stacked with the usual section gap.
 local function CreateGroup(parent, name, mods, width)
     local grp = CreateFrame("Frame", nil, parent)
     grp:SetWidth(width)
 
     local header = grp:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     header:SetPoint("TOPLEFT", 0, 0)
-    header:SetText(name)
+    header:SetTextColor(PURPLE_R, PURPLE_G, PURPLE_B)
+    header:SetText(string.upper(name))
 
-    local rule = Divider(grp, "ARTWORK", 1)
+    local rule = Solid(grp, "ARTWORK", PURPLE_R, PURPLE_G, PURPLE_B, 0.6)
     rule:SetHeight(GROUP_RULE)
     rule:SetPoint("TOPLEFT", 0, -GROUP_HEADER_HEIGHT)
     rule:SetPoint("TOPRIGHT", 0, -GROUP_HEADER_HEIGHT)
@@ -909,7 +886,7 @@ local function CreateScroller(parent, body, bodyWidth, viewHeight)
     track:SetPoint("TOPLEFT", scroll, "TOPRIGHT", 8, 0)
     track:SetPoint("BOTTOMLEFT", scroll, "BOTTOMRIGHT", 8, 0)
 
-    local thumb = Solid(parent, "OVERLAY", GOLD_R, GOLD_G, GOLD_B, 0.8)
+    local thumb = Solid(parent, "OVERLAY", PURPLE_R, PURPLE_G, PURPLE_B, 0.7)
     thumb:SetWidth(3)
 
     local function UpdateThumb()
@@ -957,11 +934,13 @@ local function BuildOptionsDialog()
     f:SetWidth(DIALOG_WIDTH)
     f:SetFrameStrata("DIALOG")
     f:SetBackdrop({
-        bgFile   = DIALOG_BG,
-        edgeFile = DIALOG_EDGE,
-        tile = true, tileSize = 32, edgeSize = 32,
+        bgFile   = "Interface\\Buttons\\WHITE8X8",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        tile = false, edgeSize = 14,
         insets = { left = BORDER_INSET, right = BORDER_INSET, top = BORDER_INSET, bottom = BORDER_INSET },
     })
+    f:SetBackdropColor(0.06, 0.04, 0.09, 0.95)
+    f:SetBackdropBorderColor(0.55, 0.3, 0.9)
     f:SetMovable(true)
     f:SetClampedToScreen(true)
     f:EnableMouse(true)
@@ -970,9 +949,8 @@ local function BuildOptionsDialog()
     -- Escape closes it.
     tinsert(UISpecialFrames, "MooseModeOptionsFrame")
 
-    -- Title bar: the classic header plaque overlapping the top border, the
-    -- title on it, the version hint beneath, and the close button. Dragging
-    -- the bar moves the dialog.
+    -- Title bar: tinted strip, title, version hint, close button. Dragging it
+    -- moves the dialog.
     local titleBar = CreateFrame("Frame", nil, f)
     titleBar:SetHeight(TITLE_HEIGHT)
     titleBar:SetPoint("TOPLEFT", BORDER_INSET, -BORDER_INSET)
@@ -991,19 +969,21 @@ local function BuildOptionsDialog()
         end
     end)
 
-    local plaque = titleBar:CreateTexture(nil, "ARTWORK")
-    plaque:SetTexture(DIALOG_HEADER)
-    plaque:SetSize(300, 64)
-    plaque:SetPoint("TOP", f, "TOP", 0, 12)
+    local strip = Solid(titleBar, "BACKGROUND", 0.55, 0.3, 0.9, 0.25)
+    strip:SetAllPoints()
 
-    local title = titleBar:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    title:SetPoint("TOP", plaque, "TOP", 0, -14)
+    local stripLine = Solid(titleBar, "ARTWORK", PURPLE_R, PURPLE_G, PURPLE_B, 0.5)
+    stripLine:SetHeight(1)
+    stripLine:SetPoint("BOTTOMLEFT")
+    stripLine:SetPoint("BOTTOMRIGHT")
+
+    local title = titleBar:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    title:SetPoint("LEFT", DIALOG_PAD - BORDER_INSET, 0)
     title:SetTextColor(PURPLE_R, PURPLE_G, PURPLE_B)
     title:SetText("MooseMode")
 
     local subtitle = titleBar:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    subtitle:SetPoint("TOP", plaque, "BOTTOM", 0, 10)
-    subtitle:SetJustifyH("CENTER")
+    subtitle:SetPoint("LEFT", title, "RIGHT", 10, -1)
     local version = AddonVersion()
     subtitle:SetText(version ~= "" and (version .. "   /mm or /moose") or "/mm or /moose")
 
@@ -1024,10 +1004,10 @@ local function BuildOptionsDialog()
     bodyAnchor:SetPoint("TOPLEFT", f, "TOPLEFT", DIALOG_PAD, -(BORDER_INSET + TITLE_HEIGHT + DIALOG_PAD))
 
     -- Footer.
-    local footerLine = Divider(f, "ARTWORK", 0.6)
-    footerLine:SetHeight(8)
-    footerLine:SetPoint("BOTTOMLEFT", DIALOG_PAD, BORDER_INSET + FOOTER_HEIGHT - 4)
-    footerLine:SetPoint("BOTTOMRIGHT", -DIALOG_PAD, BORDER_INSET + FOOTER_HEIGHT - 4)
+    local footerLine = Solid(f, "ARTWORK", PURPLE_R, PURPLE_G, PURPLE_B, 0.35)
+    footerLine:SetHeight(1)
+    footerLine:SetPoint("BOTTOMLEFT", DIALOG_PAD, BORDER_INSET + FOOTER_HEIGHT)
+    footerLine:SetPoint("BOTTOMRIGHT", -DIALOG_PAD, BORDER_INSET + FOOTER_HEIGHT)
 
     local footerLeft = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     footerLeft:SetPoint("BOTTOMLEFT", DIALOG_PAD, BORDER_INSET + (FOOTER_HEIGHT - 12) / 2)
