@@ -95,39 +95,19 @@ end
 -- the Vanilla rule (green at three or more levels below) if the API is gone.
 local function DifficultyColour(qlvl, plvl)
     if not qlvl or not plvl then return nil end
-    local getColor = GetQuestDifficultyColor
-        or (C_PlayerInfo and C_PlayerInfo.GetQuestDifficultyColor)
-    if getColor then
-        local c = getColor(qlvl)
-        local r, g, b = c and c.r, c and c.g, c and c.b
-        if type(r) == "number" and type(g) == "number" and type(b) == "number"
-           and not ns.IsSecret(r) and not ns.IsSecret(g) and not ns.IsSecret(b) then
-            local named = QuestDifficultyColors
-            local function same(entry)
-                return entry and math.abs(entry.r - r) < 0.02 and math.abs(entry.g - g) < 0.02
-                   and math.abs(entry.b - b) < 0.02
-            end
-            if named then
-                -- Blizzard names: trivial=grey, standard=green,
-                -- difficult=yellow, verydifficult=orange, impossible=red.
-                if same(named.trivial)       then return "grey" end
-                if same(named.standard)      then return "green" end
-                if same(named.difficult)     then return "yellow" end
-                if same(named.verydifficult) then return "orange" end
-                if same(named.impossible)    then return "red" end
-            end
-            if g > 0.8 and r < 0.3 then return "green" end
-            if r > 0.8 and g > 0.8 then return "yellow" end
-            if r > 0.8 and g < 0.6 and b < 0.3 then return "orange" end
-            if r > 0.8 and g < 0.3 then return "red" end
-            if r > 0.4 and math.abs(r - g) < 0.1 and math.abs(g - b) < 0.1 then return "grey" end
-            return nil
-        end
-    end
-    local range = TrivialRange(plvl)
-    if range and qlvl < plvl - range then return "grey" end
-    if qlvl <= plvl - 3 then return "green" end
-    return "yellow"
+    -- Blizzard's own relative-difficulty rule (GetRelativeDifficultyColor):
+    -- five or more above you is red, three or four orange, two below to two
+    -- above yellow, then green down to the trivial range, then grey. Computed
+    -- from levels rather than asking the client for a colour, because on
+    -- Forever the colour call answered "yellow" for a quest four levels below
+    -- the player while the quest log showed it green.
+    local diff = qlvl - plvl
+    if diff >= 5 then return "red" end
+    if diff >= 3 then return "orange" end
+    if diff >= -2 then return "yellow" end
+    local range = TrivialRange(plvl) or 5
+    if -diff <= range then return "green" end
+    return "grey"
 end
 
 -- Which quests count as low level: "grey" (the default) or "green", which
