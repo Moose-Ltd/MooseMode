@@ -35,7 +35,8 @@
 --     (GetTitleText()); QuestInfoFrame.questLog is nil for the NPC offer and
 --     true for the quest log / map views (lines 50, 1111-1154). The header is
 --     decorated after hooksecurefunc("QuestInfo_ShowTitle") and on
---     QUEST_DETAIL, NPC offers only, rebuilt from GetTitleText() so a
+--     QUEST_DETAIL, NPC offers only (skip reason goes on its own line above
+--     the Accept/Decline buttons, not in the title), rebuilt from GetTitleText() so a
 --     follow-up quest in the same panel is re-read, never decorated twice.
 --
 -- The original title is kept on the button (MooseOriginalText) and the
@@ -114,8 +115,9 @@ local function SkipReason(questID, apiTrivial)
     return reason
 end
 
--- Builds the decorated title. `kind` is "available" or "active".
-local function Decorate(title, questID, kind, apiTrivial, isComplete)
+-- Builds the decorated title. `kind` is "available" or "active". `noTag`
+-- leaves the skip tag off (the detail window shows it separately).
+local function Decorate(title, questID, kind, apiTrivial, isComplete, noTag)
     local level = QuestLevel(questID)
     local colour = LevelColourCode(level)
     local text
@@ -126,7 +128,7 @@ local function Decorate(title, questID, kind, apiTrivial, isComplete)
     else
         text = BLACK .. title .. "|r"
     end
-    if kind == "available" then
+    if kind == "available" and not noTag then
         local reason = SkipReason(questID, apiTrivial)
         if reason then
             text = text .. "  " .. GREY .. "skipped: " .. reason .. "|r"
@@ -283,6 +285,49 @@ local function DetailOfferShown()
     return QuestInfoTitleHeader and QuestInfoTitleHeader.SetText and true or false
 end
 
+-- The skip reason on the detail window lives in its own line in the dark
+-- strip between the parchment and the Accept/Decline buttons, spanning
+-- from the Accept button to the Decline button so it is centred. The
+-- ornate title font made a tag appended there hard to read.
+local detailNote
+
+local function DetailNote()
+    if detailNote then return detailNote end
+    if not QuestFrameDetailPanel or not QuestFrameDetailPanel.CreateFontString then return nil end
+    local fs = QuestFrameDetailPanel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    if QuestFrameAcceptButton and QuestFrameDeclineButton then
+        fs:SetPoint("BOTTOMLEFT", QuestFrameAcceptButton, "TOPLEFT", 0, 6)
+        fs:SetPoint("BOTTOMRIGHT", QuestFrameDeclineButton, "TOPRIGHT", 0, 6)
+    else
+        fs:SetPoint("BOTTOM", QuestFrameDetailPanel, "BOTTOM", 0, 44)
+        fs:SetWidth(300)
+    end
+    fs:SetJustifyH("CENTER")
+    fs:SetShadowColor(0, 0, 0, 1)
+    fs:SetShadowOffset(1, -1)
+    fs:Hide()
+    detailNote = fs
+    return fs
+end
+
+local REASON_COLOUR = {
+    grey  = "|cff9d9d9d",
+    green = "|cff40bf40",
+}
+
+local function UpdateDetailNote(questID)
+    local note = DetailNote()
+    if not note then return end
+    local reason = SkipReason(questID, nil)
+    if not reason then note:Hide() return end
+    local word = reason
+    if reason == "shift" then word = "Shift held" end
+    local colour = REASON_COLOUR[reason] or GREY
+    note:SetText(GOLD .. "Auto Quest left this for you: " .. colour .. word .. "|r"
+        .. (reason == "shift" and "" or GOLD .. " quest|r") .. "|r")
+    note:Show()
+end
+
 local function DecorateDetail()
     if applying or not Enabled() or not DetailOfferShown() then return end
     local questID = GetQuestID and GetQuestID()
@@ -292,8 +337,9 @@ local function DecorateDetail()
     local title = GetTitleText and GetTitleText()
     if not title or title == "" or ns.IsSecret(title) then return end
     applying = true
-    QuestInfoTitleHeader:SetText(Decorate(title, questID, "available", nil))
+    QuestInfoTitleHeader:SetText(Decorate(title, questID, "available", nil, nil, true))
     applying = false
+    UpdateDetailNote(questID)
 end
 
 -------------------------------------------------------------------------------
@@ -355,6 +401,7 @@ local function InstallHooks()
         -- nothing needs restoring; the hook only exists so a stale decorated
         -- title is never left in the shared header for the quest log view.
         QuestFrameDetailPanel:HookScript("OnHide", function()
+            if detailNote then detailNote:Hide() end
             if QuestInfoTitleHeader and GetTitleText then
                 local raw = GetTitleText()
                 if type(raw) == "string" and not ns.IsSecret(raw) then
