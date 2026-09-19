@@ -70,6 +70,9 @@ end
 --   options  = { { key, label, tooltip, default, onChange, parent }, ... },
 --              -- parent = "<optionKey>" makes this a sub-option: rendered
 --              -- indented under that option and greyed out while it is off
+--              -- { type = "button", label, buttonText, tooltip, onClick }
+--              -- is a one-off action row (no key, nothing saved); a second
+--              -- button with pair = true shares the previous button's row
 --   OnInit   = function(mod) end,     -- called once ns.db exists (optional)
 --   commands = { sub = function(rest) end, ... },  -- /mm <sub> (optional)
 -- }
@@ -96,7 +99,8 @@ local function ApplyDefaults(db)
     end
     for _, mod in ipairs(ns.modules) do
         for _, opt in ipairs(mod.options) do
-            if db[opt.key] == nil then db[opt.key] = opt.default end
+            -- Button rows carry no setting and no key.
+            if opt.key and db[opt.key] == nil then db[opt.key] = opt.default end
         end
     end
 end
@@ -249,6 +253,9 @@ local ROW_MIN_HEIGHT  = 24
 local CHECK_SIZE      = 24
 local SUB_INDENT      = 22
 local LABEL_GAP       = 4
+local BUTTON_WIDTH    = 78
+local BUTTON_HEIGHT   = 22
+local BUTTON_GAP      = 6
 local BORDER_INSET    = 4
 local MAX_SCREEN_FRAC = 0.8
 local SCROLL_STEP     = 40
@@ -302,7 +309,8 @@ local function OrderedOptions(mod)
             ordered[#ordered + 1] = opt
             placed[opt] = true
             for _, child in ipairs(mod.options) do
-                if child.parent == opt.key and not placed[child] then
+                -- opt.key is nil for button rows; never adopt children then.
+                if opt.key and child.parent == opt.key and not placed[child] then
                     ordered[#ordered + 1] = child
                     placed[child] = true
                 end
@@ -318,7 +326,9 @@ end
 local function ShowOptionTooltip(owner, opt)
     if not opt.tooltip then return end
     GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
-    GameTooltip:AddLine(opt.label, 1, 1, 1)
+    local title = opt.label
+    if not title or title == "" then title = opt.buttonText end
+    GameTooltip:AddLine(title or "", 1, 1, 1)
     GameTooltip:AddLine(opt.tooltip, nil, nil, nil, true)
     GameTooltip:Show()
 end
@@ -403,6 +413,58 @@ local function CreateOptionRow(parent, opt, width)
     return row
 end
 
+-- Adds one action button to a button row, right-aligned: the first button
+-- hugs the row's right edge, each further one sits to the left of the last.
+local function AddRowButton(row, opt)
+    local b = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
+    b:SetSize(BUTTON_WIDTH, BUTTON_HEIGHT)
+    b:SetText(opt.buttonText or opt.label or "Go")
+    if row.lastButton then
+        b:SetPoint("RIGHT", row.lastButton, "LEFT", -BUTTON_GAP, 0)
+    else
+        b:SetPoint("RIGHT", row, "RIGHT", 0, 0)
+    end
+    b:SetScript("OnClick", function()
+        if opt.onClick then opt.onClick(opt) end
+    end)
+    b:SetScript("OnEnter", function(self) ShowOptionTooltip(self, opt) end)
+    b:SetScript("OnLeave", HideTooltip)
+    row.lastButton = b
+    row.buttonCount = (row.buttonCount or 0) + 1
+    -- Shrink the label so it never runs under the buttons.
+    if row.label then
+        local avail = row:GetWidth() - row.buttonCount * (BUTTON_WIDTH + BUTTON_GAP) - LABEL_GAP
+        row.label:SetWidth(math.max(40, avail))
+        local textHeight = row.label:GetStringHeight() or 0
+        row:SetHeight(math.max(ROW_MIN_HEIGHT, textHeight + 8))
+    end
+    return b
+end
+
+-- One-off action: label on the left, button(s) on the right. The label is
+-- vertically centred on the row; the row grows if the label wraps.
+local function CreateButtonRow(parent, opt, width)
+    local row = CreateFrame("Frame", nil, parent)
+    row:SetWidth(width)
+    row:SetHeight(ROW_MIN_HEIGHT)
+    row:EnableMouse(true)
+
+    if opt.label and opt.label ~= "" then
+        local label = row:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+        label:SetPoint("LEFT", row, "LEFT", 0, 0)
+        label:SetJustifyH("LEFT")
+        label:SetWordWrap(true)
+        label:SetNonSpaceWrap(false)
+        label:SetText(opt.label)
+        row.label = label
+    end
+    row:SetScript("OnEnter", function(self) ShowOptionTooltip(self, opt) end)
+    row:SetScript("OnLeave", HideTooltip)
+
+    AddRowButton(row, opt)
+    return row
+end
+
 -- One module: purple header, hairline, then its option rows.
 local function CreateSection(parent, mod, width)
     local sec = CreateFrame("Frame", nil, parent)
@@ -419,10 +481,26 @@ local function CreateSection(parent, mod, width)
     line:SetPoint("TOPRIGHT", 0, -HEADER_HEIGHT)
 
     local y = -(HEADER_HEIGHT + 6)
+    local lastButtonRow
     for _, opt in ipairs(OrderedOptions(mod)) do
-        local row = CreateOptionRow(sec, opt, width)
-        row:SetPoint("TOPLEFT", 0, y)
-        y = y - row:GetHeight()
+        if opt.type == "button" then
+            if opt.pair and lastButtonRow then
+                -- Second action on the same row, to the left of the first.
+                local before = lastButtonRow:GetHeight()
+                AddRowButton(lastButtonRow, opt)
+                y = y - (lastButtonRow:GetHeight() - before)
+            else
+                local row = CreateButtonRow(sec, opt, width)
+                row:SetPoint("TOPLEFT", 0, y)
+                y = y - row:GetHeight()
+                lastButtonRow = row
+            end
+        else
+            local row = CreateOptionRow(sec, opt, width)
+            row:SetPoint("TOPLEFT", 0, y)
+            y = y - row:GetHeight()
+            lastButtonRow = nil
+        end
     end
     sec:SetHeight(-y)
     return sec
