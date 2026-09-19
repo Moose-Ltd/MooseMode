@@ -1,26 +1,19 @@
 -------------------------------------------------------------------------------
 -- MooseMode -- Graphics
 --
--- One-click "ultra" graphics preset, a camera zoom-out beyond the settings
--- slider, and an optional vivid-colour tweak. Everything is a CVar write;
--- nothing here touches gameplay.
+-- A camera zoom-out beyond the settings slider, and an optional vivid-colour
+-- tweak. Everything is a CVar write; nothing here touches gameplay.
 --
--- The ultra preset snapshots every value it is about to change the first
--- time it runs, so Restore can put the client back exactly as it was.
---
--- Graphics CVars are account-wide client settings; the camera zoom factor
--- is per character, so it is re-applied at every login to match the
--- account-wide option (same pattern as OneBag).
+-- The camera zoom factor is per character, so it is re-applied at every
+-- login to match the account-wide option (same pattern as OneBag).
 --
 -- Options (account-wide):
---   (button)              Ultra graphics preset: Apply / Restore
---   graphicsKeepUltra     Re-apply ultra at login
 --   graphicsMaxCamera     Max camera zoom distance
 --   graphicsVivid         Vivid colours
 --
--- Commands:
---   /mm ultra             apply the preset now
---   /mm ultra restore     put the snapshot back
+-- An earlier version shipped an "ultra" graphics preset. It was removed; the
+-- one-time migration in OnInit puts back the snapshot that preset saved, so
+-- anyone who applied it gets their previous settings again.
 -------------------------------------------------------------------------------
 
 local ADDON, ns = ...
@@ -49,132 +42,6 @@ local function SetVar(name, value)
     if not set then return false end
     local ok = pcall(set, name, tostring(value))
     return ok
-end
-
--------------------------------------------------------------------------------
--- Ultra preset
---
--- Names and maxima follow the Retail 12.x settings page, cross-checked
--- against the CVars this client writes to Config.wtf. Anything the client
--- does not know is skipped silently.
--------------------------------------------------------------------------------
-
-local RESTART_REQUIRED = {
-    MSAAQuality = true,
-    ffxAntiAliasingMode = true,
-    graphicsTextureResolution = true,
-    raidGraphicsTextureResolution = true,
-}
-
--- Per-slider maxima, applied to both the normal and the "raid" profile.
-local SLIDERS = {
-    ViewDistance       = 10,
-    EnvironmentDetail  = 10,
-    GroundClutter      = 10,
-    ShadowQuality      = 5,
-    LiquidDetail       = 3,
-    PBRLiquidDetail    = 2,
-    Sunshafts          = 2,
-    ParticleDensity    = 5,
-    SSAO               = 4,
-    DepthEffects       = 3,
-    ComputeEffects     = 4,
-    OutlineMode        = 2,
-    TextureResolution  = 2,
-    SpellDensity       = 5,
-    ProjectedTextures  = 1,
-    TextureFiltering   = 5,
-    PhysicsInteraction = 2,
-    LightMode          = 2,
-}
-
--- Settings without a raid twin.
-local SINGLES = {
-    MSAAQuality         = 3,
-    ffxAntiAliasingMode = 3,
-    ffxGlow             = 1,
-    weatherDensity      = 3,
-    renderScale         = 1,
-}
-
-local function BuildPreset()
-    local preset = {}
-    for name, value in pairs(SLIDERS) do
-        preset["graphics" .. name] = value
-        preset["raidGraphics" .. name] = value
-    end
-    for name, value in pairs(SINGLES) do
-        preset[name] = value
-    end
-    return preset
-end
-
-local PRESET = BuildPreset()
-
-local function ApplyUltra(announce)
-    local db = ns.db
-    if not db then return end
-    if InCombatLockdown() then
-        if announce then ns.Print("Cannot change graphics settings in combat.") end
-        return
-    end
-
-    local snapshot = db.graphicsPrev
-    local takeSnapshot = (snapshot == nil)
-    if takeSnapshot then snapshot = {} end
-
-    local set, changed, restart = 0, 0, false
-    for name, value in pairs(PRESET) do
-        if CVarExists(name) then
-            local current = GetVar(name)
-            if takeSnapshot and current ~= nil then snapshot[name] = current end
-            if SetVar(name, value) then
-                set = set + 1
-                if tostring(current) ~= tostring(value) then
-                    changed = changed + 1
-                    if RESTART_REQUIRED[name] then restart = true end
-                end
-            end
-        end
-    end
-    if takeSnapshot then db.graphicsPrev = snapshot end
-
-    if announce then
-        if set == 0 then
-            ns.Print("No graphics settings could be applied on this client.")
-        else
-            ns.Print(("Ultra preset applied: %d settings set, %d changed."):format(set, changed))
-            if restart then
-                ns.Print("Anti-aliasing and texture resolution take effect after restarting the game.")
-            end
-        end
-    end
-end
-
-local function RestoreUltra()
-    local db = ns.db
-    if not db then return end
-    if InCombatLockdown() then
-        ns.Print("Cannot change graphics settings in combat.")
-        return
-    end
-    local snapshot = db.graphicsPrev
-    if not snapshot then
-        ns.Print("Nothing to restore; the ultra preset has not been applied.")
-        return
-    end
-    local n, restart = 0, false
-    for name, value in pairs(snapshot) do
-        if CVarExists(name) and SetVar(name, value) then
-            n = n + 1
-            if RESTART_REQUIRED[name] then restart = true end
-        end
-    end
-    db.graphicsPrev = nil
-    ns.Print(("Graphics settings restored: %d values put back."):format(n))
-    if restart then
-        ns.Print("Anti-aliasing and texture resolution take effect after restarting the game.")
-    end
 end
 
 -------------------------------------------------------------------------------
@@ -242,6 +109,32 @@ local function ApplyVivid(enabled, announce)
 end
 
 -------------------------------------------------------------------------------
+-- Migration: undo the removed ultra preset
+--
+-- The preset saved a snapshot of every CVar it changed in db.graphicsPrev.
+-- If one is present, write it back once and clear the stale keys.
+-------------------------------------------------------------------------------
+
+local function MigrateUltra()
+    local db = ns.db
+    if not db then return end
+    local snapshot = db.graphicsPrev
+    local restored = 0
+    if type(snapshot) == "table" and next(snapshot) ~= nil then
+        for name, value in pairs(snapshot) do
+            if CVarExists(name) and SetVar(name, value) then
+                restored = restored + 1
+            end
+        end
+    end
+    db.graphicsPrev = nil
+    db.graphicsKeepUltra = nil
+    if restored > 0 then
+        ns.Print("Graphics: the ultra preset was removed; your previous graphics settings have been restored (anti-aliasing changes need a restart).")
+    end
+end
+
+-------------------------------------------------------------------------------
 -- Login enforcement
 -------------------------------------------------------------------------------
 
@@ -250,7 +143,6 @@ local function ApplyAtLogin()
     if not db then return end
     ApplyCamera(db.graphicsMaxCamera and true or false, false)
     if db.graphicsVivid then ApplyVivid(true, false) end
-    if db.graphicsKeepUltra then ApplyUltra(false) end
 end
 
 local frame = CreateFrame("Frame")
@@ -268,14 +160,6 @@ ns:RegisterModule({
     label = "Graphics",
     group = "Interface",
     options = {
-        { type = "button", label = "Ultra graphics preset", buttonText = "Apply",
-          tooltip = "Sets every graphics slider to its highest value and view distance to maximum. Heaviest on frame rate: view distance and shadows; lower those two in the game's settings if it stutters. Anti-aliasing and texture resolution only change after a restart.",
-          onClick = function() ApplyUltra(true) end },
-        { type = "button", buttonText = "Restore", pair = true,
-          tooltip = "Puts back the settings you had before the preset was applied.",
-          onClick = function() RestoreUltra() end },
-        { key = "graphicsKeepUltra", label = "Re-apply ultra at login", default = false,
-          tooltip = "Applies the preset again every login so patches cannot reset it." },
         { key = "graphicsMaxCamera", label = "Max camera zoom distance", default = true,
           tooltip = "Lets you zoom the camera out further than the settings slider allows. Applied on every character.",
           onChange = function(checked) ApplyCamera(checked, true) end },
@@ -284,17 +168,8 @@ ns:RegisterModule({
           onChange = function(checked) ApplyVivid(checked, true) end },
     },
     OnInit = function()
+        MigrateUltra()
         -- PLAYER_LOGIN may already have fired if the addon was loaded late.
         if IsLoggedIn and IsLoggedIn() then ApplyAtLogin() end
     end,
-    commands = {
-        ultra = function(rest)
-            rest = (rest or ""):lower()
-            if rest == "restore" then
-                RestoreUltra()
-            else
-                ApplyUltra(true)
-            end
-        end,
-    },
 })
