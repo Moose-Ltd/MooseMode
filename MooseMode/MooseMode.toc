@@ -1,7 +1,7 @@
 ## Interface: 16001, 120105
 ## Title: |cffb04cffMooseMode|r
 ## Notes: A growing bag of quality-of-life tools for WoW: Forever. Auto-sell junk, fast loot, and more to come.
-## Author: Matthew
+## Author: Moose
 ## Version: 1.1.0
 ## IconTexture: Interface\TargetingFrame\UI-RaidTargetingIcon_1
 ## SavedVariables: MooseModeDB
