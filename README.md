@@ -10,6 +10,7 @@ A growing bag of quality-of-life tools for **World of Warcraft: Forever**. It co
 - **Fast Loot.** Grabs everything from a corpse the moment the loot is ready. Optionally leaves grey items behind; money and quest items are always taken. While it is on it takes over the game's own auto-loot setting (otherwise the client would loot every slot before the grey rule could apply) and restores it when turned off. Hold the game's auto-loot modifier key (Shift by default) when loot opens to get the normal loot window instead.
 - **Pet Attack.** Sends your pet at the target the moment you start casting a damage spell, so a Voidwalker is already running in while Corruption is still on the cast bar. Every pet command (attack, assist, stances) is protected on this client and cannot be called by an addon, so this works through macros: tick the option and MooseMode writes one macro per damage spell in your spellbook (`#showtooltip`, `/petattack`, `/cast`), and you drag those onto your bars in place of the spells. It never overwrites a macro it did not create, and turning the option off leaves the macros alone.
 - **Action Bars.** Hides the macro name text under the icon on every action bar button, so a bar of pet-attack macros looks like a bar of spells. Untick to bring the names back.
+- **Spell Ranks.** Forever has Vanilla-style spell ranks on the Retail client, so learning Demon Armor rank 3 leaves any button that holds rank 2 casting rank 2. This module swaps such buttons to the highest rank you know, out of combat, whenever you learn a spell and once at login, and reports each swap in chat. Name-based macros (`/cast Demon Armor`) already cast the top rank; this covers plain spell buttons dragged from the spellbook.
 - **Auto Quest.** Accepts quests automatically from quest givers, quest lists and gossip windows, hands in completed quests, and picks up the follow-ups that unlock. Low-level quests are skipped unless you tick the sub-option: a quest counts as low level when the client flags it trivial or its level is at or below your grey threshold, and a second sub-option extends that to anything below your level. The debug option logs each quest's level, your level and the grey threshold so you can see why a quest was skipped. If a hand-in offers more than one reward to choose from, the window stays open so you can pick. Also picks the gossip option for you when an NPC offers exactly one and no quests. Hold **Shift** while talking to an NPC to skip all of it.
 - **Quest Rewards.** When a quest lets you choose a reward, each choice shows its vendor sell value in gold text on the button and the most valuable one gets a gold border (ties all get it). Works in the hand-in window and in the quest log and map details, since Blizzard draws them all through the same reward frame. Prices the client has not seen yet fill in a moment later.
 - **Auto Repair.** Repairs all your gear as soon as a vendor that can repair opens, and prints the cost. Optionally pays from the guild bank when your rank allows it. Warns you if you cannot afford it. Hold **Shift** while talking to the vendor to skip.
@@ -56,6 +57,7 @@ Then start the game, click **AddOns** on the character select screen and make su
 | `/mm questdebug` | Toggle quest debug logging: every quest event, what the NPC offered and each decision, in chat |
 | `/mm petmacros` | Build or refresh the pet-attack macros now, whatever the option says |
 | `/mm petmacro <Spell Name>` | Build or refresh a single pet-attack macro for that spell, no damage-spell check |
+| `/mm ranks` | Check every spell button now and move any old rank to the highest you know, with a summary |
 
 ## Options
 
@@ -69,6 +71,8 @@ Then start the game, click **AddOns** on the character select screen and make su
 | Pet Attack | Pet-attack macros for damage spells | off |
 | Pet Attack | ↳ Only on pet classes (Hunter, Warlock) | on |
 | Action Bars | Hide macro names on bars | on |
+| Spell Ranks | Keep bars on highest spell rank | on |
+| Spell Ranks | ↳ Report swaps in chat | on |
 | Auto Quest | Accept quests | on |
 | Auto Quest | ↳ Include low-level quests | off |
 | Auto Quest | ↳ Also skip quests below my level (skips quests the game colours green, using the client's own difficulty colour; no effect while low-level quests are included) | off |
@@ -100,6 +104,7 @@ MooseMode/
     FastLoot.lua        fast corpse looting
     PetAttack.lua       /petattack macros for damage spells
     ActionBars.lua      hide macro names on action bar buttons
+    SpellRanks.lua      keep spell buttons on the highest known rank
     AutoQuest.lua       quest accepting, hand-ins and gossip automation
     QuestRewards.lua    vendor value and best-choice highlight on quest rewards
     AutoRepair.lua      gear repair at vendors
