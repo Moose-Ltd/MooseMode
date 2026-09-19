@@ -11,6 +11,7 @@ Core.lua
 Modules\AutoSell.lua
 Modules\FastLoot.lua
 Modules\PetAttack.lua
+Modules\ActionBars.lua
 Modules\AutoQuest.lua
 Modules\AutoRepair.lua
 Modules\OneBag.lua
