@@ -67,7 +67,7 @@ Then start the game, click **AddOns** on the character select screen and make su
 | Action Bars | Hide macro names on bars | on |
 | Auto Quest | Accept quests | on |
 | Auto Quest | ↳ Include low-level quests | off |
-| Auto Quest | ↳ Also skip quests below my level (no effect while low-level quests are included) | off |
+| Auto Quest | ↳ Also skip quests below my level (skips quests the game colours green, using the client's own difficulty colour; no effect while low-level quests are included) | off |
 | Auto Quest | ↳ Complete quest hand-ins (reward windows with several choices stay open) | on |
 | Auto Quest | Pick the only gossip option | on |
 | Auto Quest | ↳ Debug log to chat | off |

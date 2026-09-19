@@ -11,7 +11,7 @@
 -- Options (account-wide):
 --   autoQuest           Auto accept quests
 --   autoQuestLowLevel   Include low-level quests (sub-option)
---   autoQuestSkipBelowLevel  Also skip quests below the player's level (sub-option)
+--   autoQuestSkipBelowLevel  Also skip quests the game colours green (sub-option)
 --   autoQuestTurnIn     Auto complete quest hand-ins (sub-option)
 --   autoGossip          Auto select gossip when it is the only option
 --   autoQuestDebug      Log every event and decision to chat (sub-option)
@@ -85,9 +85,49 @@ local function TrivialRange(playerLevel)
     return 1 + math.floor(playerLevel / 5)
 end
 
+-- The colour the game paints a quest of this level in the log: "grey",
+-- "green", "yellow", "orange", "red", or nil when the client cannot say.
+-- Uses the client's own GetQuestDifficultyColor so the answer matches the
+-- quest log exactly (an 11 at level 12 is yellow, not green). Falls back to
+-- the Vanilla rule (green at three or more levels below) if the API is gone.
+local function DifficultyColour(qlvl, plvl)
+    if not qlvl or not plvl then return nil end
+    local getColor = GetQuestDifficultyColor
+        or (C_PlayerInfo and C_PlayerInfo.GetQuestDifficultyColor)
+    if getColor then
+        local c = getColor(qlvl)
+        local r, g, b = c and c.r, c and c.g, c and c.b
+        if type(r) == "number" and type(g) == "number" and type(b) == "number"
+           and not ns.IsSecret(r) and not ns.IsSecret(g) and not ns.IsSecret(b) then
+            local named = QuestDifficultyColors
+            local function same(entry)
+                return entry and math.abs(entry.r - r) < 0.02 and math.abs(entry.g - g) < 0.02
+                   and math.abs(entry.b - b) < 0.02
+            end
+            if named then
+                if same(named.trivial)       then return "grey" end
+                if same(named.standard)      then return "yellow" end
+                if same(named.difficult)     then return "orange" end
+                if same(named.verydifficult) then return "red" end
+            end
+            if g > 0.8 and r < 0.3 then return "green" end
+            if r > 0.8 and g > 0.8 then return "yellow" end
+            if r > 0.8 and g < 0.6 and b < 0.3 then return "orange" end
+            if r > 0.8 and g < 0.3 then return "red" end
+            if r > 0.4 and math.abs(r - g) < 0.1 and math.abs(g - b) < 0.1 then return "grey" end
+            return nil
+        end
+    end
+    local range = TrivialRange(plvl)
+    if range and qlvl <= plvl - range then return "grey" end
+    if qlvl <= plvl - 3 then return "green" end
+    return "yellow"
+end
+
 -- Low level = the client says trivial, OR the quest level is at or below
 -- the player's grey threshold. The API flag alone proved unreliable on
--- Forever, so the level check is a second opinion.
+-- Forever, so the level check is a second opinion. With the stricter
+-- sub-option on, quests the game colours green count as low level too.
 local function IsLowLevel(questID, apiFlag)
     if apiFlag == nil then apiFlag = ApiTrivial(questID) end
     if not ns.IsSecret(apiFlag) and apiFlag then return true end
@@ -95,8 +135,10 @@ local function IsLowLevel(questID, apiFlag)
     if not qlvl or not plvl then return false end
     local range = TrivialRange(plvl)
     if range and qlvl <= plvl - range then return true end
-    -- Stricter rule: anything below the player's level (green) counts too.
-    if ns.db.autoQuestSkipBelowLevel and qlvl < plvl then return true end
+    if ns.db.autoQuestSkipBelowLevel then
+        local colour = DifficultyColour(qlvl, plvl)
+        if colour == "green" or colour == "grey" then return true end
+    end
     return false
 end
 
@@ -149,8 +191,9 @@ local function LevelInfo(questID, apiFlag)
     local qlvl, plvl = QuestLevel(questID), PlayerLevel()
     local range = TrivialRange(plvl)
     local greyAt = (plvl and range) and (plvl - range) or nil
-    return ("trivial=%s qlvl=%s plvl=%s grey<=%s low=%s"):format(
-        Str(apiFlag), Str(qlvl), Str(plvl), Str(greyAt), Str(IsLowLevel(questID, apiFlag)))
+    return ("trivial=%s qlvl=%s plvl=%s grey<=%s colour=%s low=%s"):format(
+        Str(apiFlag), Str(qlvl), Str(plvl), Str(greyAt), Str(DifficultyColour(qlvl, plvl)),
+        Str(IsLowLevel(questID, apiFlag)))
 end
 
 -- When a list window (greeting or gossip) re-opens within a whisker of our
@@ -454,7 +497,7 @@ ns:RegisterModule({
         { key = "autoQuestLowLevel", label = "Include low-level quests", default = false, parent = "autoQuest",
           tooltip = "Also accept quests that are grey for your level." },
         { key = "autoQuestSkipBelowLevel", label = "Also skip quests below my level", default = false, parent = "autoQuest",
-          tooltip = "Skip green quests too, not just grey ones. Does nothing while low-level quests are included." },
+          tooltip = "Also skip quests the game colours green (easy), not just grey. Does nothing while low-level quests are included." },
         { key = "autoQuestTurnIn", label = "Complete quest hand-ins", default = true, parent = "autoQuest",
           tooltip = "Hand in finished quests and pick up any follow-up. When there is a choice of rewards, the window stays open for you to pick." },
         { key = "autoGossip", label = "Pick the only gossip option", default = true,
