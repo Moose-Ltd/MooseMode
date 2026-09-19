@@ -96,6 +96,40 @@ local function SkipReason()
     return IsShiftKeyDown() and "shift held" or "option off"
 end
 
+-- When a list window (greeting or gossip) re-opens within a whisker of our
+-- last accept / reward call, the client can still be tearing down the
+-- previous quest frame and a select issued right now can be dropped. In that
+-- case the list handler is re-run once, 0.2 s later, instead of acting now.
+local RETRY_WINDOW = 0.1
+local RETRY_DELAY  = 0.2
+local lastActionAt = 0
+
+local function NoteAction()
+    lastActionAt = GetTime()
+end
+
+-- Returns true if the handler was deferred (caller should return).
+local function DeferIfMidTransition(name, handler, isStillShown)
+    if (GetTime() - lastActionAt) >= RETRY_WINDOW then return false end
+    lastActionAt = 0   -- one retry only
+    Debug("%s arrived mid-transition; retrying in %.1fs", name, RETRY_DELAY)
+    C_Timer.After(RETRY_DELAY, function()
+        if not ns.db then return end
+        if isStillShown and not isStillShown() then Debug("%s retry: window gone", name) return end
+        Debug("%s retry", name)
+        xpcall(handler, function(err) ns.Print("AutoQuest error: " .. tostring(err)) end)
+    end)
+    return true
+end
+
+local function GreetingStillShown()
+    return QuestFrameGreetingPanel and QuestFrameGreetingPanel:IsShown() or false
+end
+
+local function GossipStillShown()
+    return GossipFrame and GossipFrame:IsShown() or false
+end
+
 -------------------------------------------------------------------------------
 -- Quest accepting
 -------------------------------------------------------------------------------
@@ -121,6 +155,7 @@ local function OnQuestDetail()
     if IsOnQuest(questID) then Debug("skipped: already on quest") return end
     if not WantQuest(IsTrivial(questID)) then Debug("skipped: trivial") return end
     Debug("accepting")
+    NoteAction()
     AcceptQuest()
 end
 
@@ -197,9 +232,11 @@ local function OnQuestComplete()
     if ns.IsSecret(n) or not n then return end
     if n == 0 then
         Debug("taking reward")
+        NoteAction()
         GetQuestReward(0)
     elseif n == 1 then
         Debug("taking the only reward choice")
+        NoteAction()
         GetQuestReward(1)
     else
         Debug("left open: %d reward choices", n)
@@ -296,18 +333,28 @@ end
 -- Window handlers: hand-ins first, then pick-ups, then gossip
 -------------------------------------------------------------------------------
 
-local function OnQuestGreeting()
-    Debug("QUEST_GREETING")
+local function HandleGreeting()
     if TurnInGreetingQuest() then return end
     if AcceptGreetingQuest() then return end
     Debug("nothing to do")
 end
 
-local function OnGossipShow()
-    Debug("GOSSIP_SHOW")
+local function HandleGossip()
     if TurnInGossipQuest() then return end
     if AcceptGossipQuest() then return end
     SelectOnlyGossipOption()
+end
+
+local function OnQuestGreeting()
+    Debug("QUEST_GREETING")
+    if DeferIfMidTransition("QUEST_GREETING", HandleGreeting, GreetingStillShown) then return end
+    HandleGreeting()
+end
+
+local function OnGossipShow()
+    Debug("GOSSIP_SHOW")
+    if DeferIfMidTransition("GOSSIP_SHOW", HandleGossip, GossipStillShown) then return end
+    HandleGossip()
 end
 
 -------------------------------------------------------------------------------
