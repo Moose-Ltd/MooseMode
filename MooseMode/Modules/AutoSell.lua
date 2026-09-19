@@ -4,10 +4,19 @@
 -- Sells grey (junk) items automatically when a vendor window opens.
 -- Hold SHIFT while opening the vendor to skip selling for that visit.
 --
+-- Two paths, chosen automatically:
+--   Fast:     Blizzard's own sell-all-junk (C_MerchantFrame.SellAllJunkItems),
+--             one call, no throttle. Used whenever the keep and junk lists are
+--             empty and the client reports sell-all as available.
+--   Per-item: our own scan + UseContainerItem on a ticker. Used when the
+--             player has keep/junk list entries (Blizzard's sell-all cannot
+--             honour them) or when sell-all is unavailable at this vendor.
+-- The chat summary always comes from our own bag scan, so the count and gold
+-- figure are the same on either path.
+--
 -- Options (account-wide):
---   autoSell          Auto sell junk at vendors
---   sellSummary       Show sale summary in chat
---   sellBlizzardFast  Use Blizzard's sell-all-junk (ignores keep/junk lists)
+--   autoSell      Sell grey items at vendors
+--   sellSummary   Show sale summary in chat (sub-option)
 --
 -- Commands:
 --   /mm keep <link>   never sell this item (toggle)
@@ -20,7 +29,7 @@
 local ADDON, ns = ...
 
 local POOR = (Enum and Enum.ItemQuality and Enum.ItemQuality.Poor) or 0
-local SELL_INTERVAL = 0.15   -- seconds between vendor sells
+local SELL_INTERVAL = 0.15   -- seconds between per-item vendor sells
 
 local sellTicker
 local sellQueue = {}
@@ -60,6 +69,10 @@ local function IsQuestItem(bag, slot)
     return ok and q and q.isQuestItem or false
 end
 
+local function ListsEmpty()
+    return next(ns.db.keep) == nil and next(ns.db.junk) == nil
+end
+
 -------------------------------------------------------------------------------
 -- Selling
 -------------------------------------------------------------------------------
@@ -74,23 +87,37 @@ local function ShouldSell(bag, slot, info, quality)
     return quality == POOR
 end
 
+-- Scans the bags into sellQueue. Returns the number of entries and the total
+-- vendor value of everything queued.
 local function BuildQueue()
     wipe(sellQueue)
+    local total = 0
     for bag = 0, NumBags() do
         local slots = C_Container.GetContainerNumSlots(bag) or 0
         for slot = 1, slots do
             local info, quality, sellPrice = SlotInfo(bag, slot)
             if info and ShouldSell(bag, slot, info, quality) then
+                local count = info.stackCount or 1
                 sellQueue[#sellQueue + 1] = {
                     bag = bag, slot = slot,
                     itemID = info.itemID,
-                    count = info.stackCount or 1,
+                    count = count,
                     price = sellPrice or 0,
                 }
+                total = total + (sellPrice or 0) * count
             end
         end
     end
-    return #sellQueue
+    return #sellQueue, total
+end
+
+local function PrintSummary(count, total)
+    if count <= 0 or not ns.db.sellSummary then return end
+    if total > 0 then
+        ns.Print(("Sold %d junk item%s for %s."):format(count, count == 1 and "" or "s", ns.Coins(total)))
+    else
+        ns.Print(("Sold %d junk item%s."):format(count, count == 1 and "" or "s"))
+    end
 end
 
 local function StopSelling(reason)
@@ -98,13 +125,7 @@ local function StopSelling(reason)
         sellTicker:Cancel()
         sellTicker = nil
     end
-    if sellCount > 0 and ns.db.sellSummary then
-        if sellTotal > 0 then
-            ns.Print(("Sold %d junk item%s for %s."):format(sellCount, sellCount == 1 and "" or "s", ns.Coins(sellTotal)))
-        else
-            ns.Print(("Sold %d junk item%s."):format(sellCount, sellCount == 1 and "" or "s"))
-        end
-    end
+    PrintSummary(sellCount, sellTotal)
     if reason then ns.Print(reason) end
     sellCount, sellTotal = 0, 0
     wipe(sellQueue)
@@ -130,6 +151,22 @@ local function SellNext()
     sellTotal = sellTotal + (entry.price or 0) * (info.stackCount or entry.count or 1)
 end
 
+-- True when Blizzard's sell-all can be used at this vendor right now and the
+-- player has no list entries that it would ignore.
+local function CanUseSellAll()
+    if not ListsEmpty() then return false end
+    if not C_MerchantFrame or not C_MerchantFrame.SellAllJunkItems then return false end
+    if C_MerchantFrame.IsSellAllJunkEnabled then
+        local ok, v = pcall(C_MerchantFrame.IsSellAllJunkEnabled)
+        if not ok or ns.IsSecret(v) or not v then return false end
+    end
+    if C_MerchantFrame.GetNumJunkItems then
+        local ok, n = pcall(C_MerchantFrame.GetNumJunkItems)
+        if not ok or ns.IsSecret(n) or not n or n <= 0 then return false end
+    end
+    return true
+end
+
 local function StartSelling(force)
     local db = ns.db
     if not db then return end
@@ -138,30 +175,20 @@ local function StartSelling(force)
     if sellTicker then StopSelling() end
     sellCount, sellTotal = 0, 0
 
-    -- Optional fast path: Blizzard's own sell-all-junk. Ignores keep/junk lists.
-    if db.sellBlizzardFast and C_MerchantFrame and C_MerchantFrame.SellAllJunkItems then
-        local enabled = true
-        if C_MerchantFrame.IsSellAllJunkEnabled then
-            local ok, v = pcall(C_MerchantFrame.IsSellAllJunkEnabled)
-            enabled = ok and v and true or false
-        end
-        if enabled then
-            local n = 0
-            if C_MerchantFrame.GetNumJunkItems then
-                local ok, v = pcall(C_MerchantFrame.GetNumJunkItems)
-                if ok and v and not ns.IsSecret(v) then n = v end
-            end
-            if n > 0 then
-                C_MerchantFrame.SellAllJunkItems()
-                if db.sellSummary then
-                    ns.Print(("Sold %d junk item%s (Blizzard sell-all)."):format(n, n == 1 and "" or "s"))
-                end
-            end
-            return
-        end
+    -- Our own scan drives the summary on both paths.
+    local count, total = BuildQueue()
+    if count == 0 then
+        wipe(sellQueue)
+        return
     end
 
-    if BuildQueue() == 0 then return end
+    if CanUseSellAll() then
+        C_MerchantFrame.SellAllJunkItems()
+        PrintSummary(count, total)
+        wipe(sellQueue)
+        return
+    end
+
     sellTicker = C_Timer.NewTicker(SELL_INTERVAL, SellNext)
 end
 
@@ -222,15 +249,14 @@ ns:RegisterModule({
     group = "Vendors",
     options = {
         { key = "autoSell", label = "Sell grey items at vendors", default = true,
-          tooltip = "Sell every grey item as soon as a vendor window opens." },
-        { key = "sellSummary", label = "Show sale summary in chat", default = true,
+          tooltip = "Uses the game's sell-all for speed. If you have keep or junk list entries it sells item by item so they are honoured." },
+        { key = "sellSummary", label = "Show sale summary in chat", default = true, parent = "autoSell",
           tooltip = "Print how many items were sold and for how much." },
-        { key = "sellBlizzardFast", label = "Use Blizzard sell-all (ignores lists)", default = false,
-          tooltip = "Use the client's own sell-all-junk instead of selling item by item. Faster, but your keep and junk lists are ignored." },
     },
     OnInit = function()
         ns.db.keep = ns.db.keep or {}
         ns.db.junk = ns.db.junk or {}
+        ns.db.sellBlizzardFast = nil   -- retired option
     end,
     commands = {
         keep  = function(rest) ToggleList(ns.db.keep, ns.db.junk, "keep", rest) end,
