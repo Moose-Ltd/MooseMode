@@ -6,7 +6,7 @@ A growing bag of quality-of-life tools for **World of Warcraft: Forever**. It co
 
 - **Minimap button.** A glossy purple orb with a white sparkle on the minimap edge, drawn from the addon's own icon file. Left-click opens the options panel, drag it to move it around the minimap. If your client draws the ring slightly off, `/mm icon <dx> <dy>` nudges the icon.
 - **Options panel.** A centred dialog with every module's settings grouped under Vendors, Quests, Loot, Combat and Interface headings: tick boxes, segmented switches for either/or choices, and button rows for one-off actions. Sub-options indent under their parent and grey out while it is off. Settings are saved per account, so every character shares them.
-- **Auto Sell.** Sells every grey item as soon as a vendor window opens and prints what it earned. It uses the game's own sell-all-junk for speed whenever your keep and junk lists are empty, and falls back to selling item by item when a list has entries (so they are honoured) or a vendor does not support sell-all. The chat summary always comes from the addon's own bag scan, so the count and gold figure are the same either way. Hold **Shift** while talking to a vendor to skip selling that visit. Keep and junk lists let you protect a grey item or force-sell a non-grey one.
+- **Auto Sell.** Sells every grey item the moment a vendor window opens, using the game's own sell-all-junk, and prints how many it sold and for how much. Hold **Shift** while talking to a vendor to skip selling that visit. Vendors that do not support sell-all are left alone.
 - **Fast Loot.** Grabs everything from a corpse the moment the loot is ready. Optionally leaves grey items behind; money and quest items are always taken. While it is on it takes over the game's own auto-loot setting (otherwise the client would loot every slot before the grey rule could apply) and restores it when turned off. Hold the game's auto-loot modifier key (Shift by default) when loot opens to get the normal loot window instead.
 - **Pet Attack.** Sends your pet at the target the moment you start casting a damage spell, so a Voidwalker is already running in while Corruption is still on the cast bar. Every pet command (attack, assist, stances) is protected on this client and cannot be called by an addon, so this works through macros: tick the option and MooseMode writes one macro per damage spell in your spellbook (`#showtooltip`, `/petattack`, `/cast`), and you drag those onto your bars in place of the spells. It never overwrites a macro it did not create, and turning the option off leaves the macros alone.
 - **Action Bars.** Hides the macro name text under the icon on every action bar button, so a bar of pet-attack macros looks like a bar of spells. Untick to bring the names back.
@@ -46,11 +46,7 @@ Then start the game, click **AddOns** on the character select screen and make su
 | `/mm minimap` | Hide or show the minimap button |
 | `/mm icon <dx> <dy>` | Nudge the minimap icon inside its ring (`/mm icon reset` to centre it again) |
 | `/mm help` | List every subcommand |
-| `/mm keep <item link>` | Never sell this item (toggle). Shift-click an item into the chat box to get a link. |
-| `/mm junk <item link>` | Always sell this item, any quality (toggle) |
-| `/mm list` | Show the keep and junk lists |
-| `/mm reset` | Clear both lists |
-| `/mm now` | Sell junk at the vendor that is currently open |
+| `/mm now` | Sell grey items at the vendor that is currently open |
 | `/mm repair` | Repair all gear at the vendor that is currently open, whatever the option says |
 | `/mm cleanup` (or `/mm sort`) | Sort your bags now with Blizzard's cleanup |
 | `/mm ultra` | Apply the ultra graphics preset now |
