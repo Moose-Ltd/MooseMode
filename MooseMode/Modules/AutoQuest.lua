@@ -3,7 +3,8 @@
 --
 -- Accepts quests automatically from quest detail windows, quest greeting
 -- lists and gossip windows, hands in completed quests, and picks up the
--- follow-up quests that hand-ins unlock. Low-level (trivial) quests are
+-- follow-up quests that hand-ins unlock. Low-level quests (the client says
+-- trivial, or the quest level is at or below the grey threshold) are
 -- skipped unless the sub-option is on. Hold SHIFT while talking to an NPC
 -- to skip it all.
 --
@@ -46,12 +47,54 @@ local function TurnInEnabled()
     return Enabled("autoQuest") and ns.db.autoQuestTurnIn
 end
 
--- True when a quest is below the trivial (grey) threshold for the player.
-local function IsTrivial(questID)
-    if not questID or ns.IsSecret(questID) then return false end
+-- The client's own trivial flag for a quest, or nil when unavailable.
+local function ApiTrivial(questID)
+    if not questID or ns.IsSecret(questID) then return nil end
     local trivial = C_QuestLog.IsQuestTrivial(questID)
-    if ns.IsSecret(trivial) then return false end
+    if ns.IsSecret(trivial) then return nil end
     return trivial and true or false
+end
+
+local function PlayerLevel()
+    local lvl = UnitLevel("player")
+    if ns.IsSecret(lvl) or type(lvl) ~= "number" then return nil end
+    return lvl
+end
+
+-- Quest level as the client reports it; nil when unknown or level-scaling
+-- (0 / -1), which is never treated as low level.
+local function QuestLevel(questID)
+    if not questID or ns.IsSecret(questID) then return nil end
+    if not C_QuestLog.GetQuestDifficultyLevel then return nil end
+    local lvl = C_QuestLog.GetQuestDifficultyLevel(questID)
+    if ns.IsSecret(lvl) or type(lvl) ~= "number" or lvl <= 0 then return nil end
+    return lvl
+end
+
+-- How many levels below the player a quest turns grey. The client answers
+-- via UnitQuestTrivialLevelRange; the Classic formula is the fallback.
+local function TrivialRange(playerLevel)
+    if UnitQuestTrivialLevelRange then
+        local r = UnitQuestTrivialLevelRange("player")
+        if not ns.IsSecret(r) and type(r) == "number" and r > 0 then return r end
+    end
+    if not playerLevel then return nil end
+    if playerLevel <= 5 then return playerLevel end          -- nothing is grey yet
+    if playerLevel <= 39 then return 5 + math.floor(playerLevel / 10) end
+    return 1 + math.floor(playerLevel / 5)
+end
+
+-- Low level = the client says trivial, OR the quest level is at or below
+-- the player's grey threshold. The API flag alone proved unreliable on
+-- Forever, so the level check is a second opinion.
+local function IsLowLevel(questID, apiFlag)
+    if apiFlag == nil then apiFlag = ApiTrivial(questID) end
+    if not ns.IsSecret(apiFlag) and apiFlag then return true end
+    local qlvl, plvl = QuestLevel(questID), PlayerLevel()
+    if not qlvl or not plvl then return false end
+    local range = TrivialRange(plvl)
+    if range and qlvl <= plvl - range then return true end
+    return false
 end
 
 -- True when the quest is in the log with all objectives done.
@@ -70,10 +113,10 @@ local function IsOnQuest(questID)
     return on and true or false
 end
 
-local function WantQuest(isTrivial)
-    if ns.IsSecret(isTrivial) then return false end
-    if isTrivial and not ns.db.autoQuestLowLevel then return false end
-    return true
+local function WantQuest(questID, apiFlag)
+    if ns.IsSecret(apiFlag) then return false end
+    if ns.db.autoQuestLowLevel then return true end
+    return not IsLowLevel(questID, apiFlag)
 end
 
 local function CountTable(t)
@@ -139,8 +182,8 @@ end
 local function OnQuestDetail()
     local questID = GetQuestID()
     local autoAccept = QuestGetAutoAccept()
-    Debug("QUEST_DETAIL quest %s autoAccept=%s onQuest=%s trivial=%s",
-        Str(questID), Str(autoAccept), Str(IsOnQuest(questID)), Str(IsTrivial(questID)))
+    Debug("QUEST_DETAIL quest %s autoAccept=%s onQuest=%s trivial=%s lowLevel=%s",
+        Str(questID), Str(autoAccept), Str(IsOnQuest(questID)), Str(ApiTrivial(questID)), Str(IsLowLevel(questID)))
     if not Enabled("autoQuest") then Debug("skipped: %s", SkipReason()) return end
 
     if autoAccept then
@@ -153,7 +196,7 @@ local function OnQuestDetail()
 
     if ns.IsSecret(questID) then Debug("skipped: secret quest id") return end
     if IsOnQuest(questID) then Debug("skipped: already on quest") return end
-    if not WantQuest(IsTrivial(questID)) then Debug("skipped: trivial") return end
+    if not WantQuest(questID, ApiTrivial(questID)) then Debug("skipped: low level") return end
     Debug("accepting")
     NoteAction()
     AcceptQuest()
@@ -166,19 +209,23 @@ local function AcceptGreetingQuest()
     local n = GetNumAvailableQuests()
     Debug("greeting: %s available", Str(n))
     if ns.IsSecret(n) or not n then return false end
+    -- GetAvailableQuestInfo(i) -> isTrivial, frequency, isRepeatable,
+    -- isLegendary, questID, ... (Blizzard QuestFrame.lua)
     for i = 1, n do
-        Debug("  available %d: %s trivial=%s", i, Str(GetAvailableTitle(i)), Str((GetAvailableQuestInfo(i))))
+        local isTrivial, _, _, _, questID = GetAvailableQuestInfo(i)
+        Debug("  available %d: quest %s %s trivial=%s lowLevel=%s", i, Str(questID), Str(GetAvailableTitle(i)),
+            Str(isTrivial), Str(IsLowLevel(questID, isTrivial)))
     end
     if not Enabled("autoQuest") then Debug("skipped: %s", SkipReason()) return false end
     for i = 1, n do
-        local isTrivial = GetAvailableQuestInfo(i)
-        if WantQuest(isTrivial) then
+        local isTrivial, _, _, _, questID = GetAvailableQuestInfo(i)
+        if WantQuest(questID, isTrivial) then
             Debug("selecting available quest %d", i)
             SelectAvailableQuest(i)
             return true
         end
     end
-    if n > 0 then Debug("skipped: all available quests trivial") end
+    if n > 0 then Debug("skipped: all available quests low level") end
     return false
 end
 
@@ -188,21 +235,20 @@ local function AcceptGossipQuest()
     Debug("gossip: %d available", CountTable(quests))
     if type(quests) ~= "table" then return false end
     for i, q in ipairs(quests) do
-        Debug("  available %d: quest %s %s trivial=%s", i, Str(q.questID), Str(q.title), Str(q.isTrivial))
+        Debug("  available %d: quest %s %s trivial=%s lowLevel=%s", i, Str(q.questID), Str(q.title),
+            Str(q.isTrivial), Str(IsLowLevel(q.questID, q.isTrivial)))
     end
     if not Enabled("autoQuest") then Debug("skipped: %s", SkipReason()) return false end
     for _, q in ipairs(quests) do
         if q.questID and not ns.IsSecret(q.questID) then
-            local trivial = q.isTrivial
-            if trivial == nil then trivial = IsTrivial(q.questID) end
-            if WantQuest(trivial) then
+            if WantQuest(q.questID, q.isTrivial) then
                 Debug("selecting available quest %s", Str(q.questID))
                 C_GossipInfo.SelectAvailableQuest(q.questID)
                 return true
             end
         end
     end
-    if #quests > 0 then Debug("skipped: all available quests trivial") end
+    if #quests > 0 then Debug("skipped: all available quests low level") end
     return false
 end
 
