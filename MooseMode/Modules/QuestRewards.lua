@@ -1,8 +1,9 @@
 -------------------------------------------------------------------------------
 -- MooseMode -- QuestRewards
 --
--- Prints each quest reward choice's vendor sell value on its button and puts
--- a gold border on the most valuable one(s). Works in the quest hand-in
+-- Prints each quest reward choice's vendor sell value on its button, frames
+-- the most valuable one(s) in gold with a pulsing ring, and dims the rest.
+-- Works in the quest hand-in
 -- window (QUEST_COMPLETE) and in the quest log / map details, since Blizzard
 -- lays both out through the same code.
 --
@@ -130,21 +131,64 @@ end
 -- Overlays (our own children on Blizzard's buttons, never their regions)
 -------------------------------------------------------------------------------
 
+-- Winner treatment: a bright gold frame around the whole button (icon and
+-- name plate), a pulsing ring on the icon, and bigger gold value text.
+-- Losers are dimmed under a translucent black sheet so the best choice is
+-- the only thing that reads at full brightness.
+
+local WHITE = "Interface\\Buttons\\WHITE8X8"
+local FRAME_R, FRAME_G, FRAME_B = 1, 0.82, 0.1      -- outer 2px line
+local INNER_R, INNER_G, INNER_B = 0.72, 0.52, 0.02  -- 1px darker line inside it
+local DIM_ALPHA = 0.28
+
+-- Four edge textures forming a rectangle `thick` px wide, `inset` px inside
+-- the parent's edge (negative inset = outside).
+local function MakeRect(parent, layer, sub, thick, inset, r, g, b)
+    local edges = {}
+    local function edge(...)
+        local t = parent:CreateTexture(nil, layer, nil, sub)
+        t:SetTexture(WHITE)
+        t:SetVertexColor(r, g, b)
+        edges[#edges + 1] = t
+        return t
+    end
+    local top = edge()
+    top:SetPoint("TOPLEFT", parent, "TOPLEFT", -inset, inset)
+    top:SetPoint("TOPRIGHT", parent, "TOPRIGHT", inset, inset)
+    top:SetHeight(thick)
+    local bottom = edge()
+    bottom:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT", -inset, -inset)
+    bottom:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", inset, -inset)
+    bottom:SetHeight(thick)
+    local left = edge()
+    left:SetPoint("TOPLEFT", top, "BOTTOMLEFT", 0, 0)
+    left:SetPoint("BOTTOMLEFT", bottom, "TOPLEFT", 0, 0)
+    left:SetWidth(thick)
+    local right = edge()
+    right:SetPoint("TOPRIGHT", top, "BOTTOMRIGHT", 0, 0)
+    right:SetPoint("BOTTOMRIGHT", bottom, "TOPRIGHT", 0, 0)
+    right:SetWidth(thick)
+    return edges
+end
+
 local function EnsureOverlays(button)
     if not button.MooseValue then
         local fs = button:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
         fs:SetDrawLayer("OVERLAY", 7)
         fs:SetJustifyH("RIGHT")
         fs:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -4, 3)
-        fs:SetTextColor(GOLD_R, GOLD_G, GOLD_B)
+        fs:SetShadowColor(0, 0, 0, 0.9)
+        fs:SetShadowOffset(1, -1)
         button.MooseValue = fs
     end
+
     if not button.MooseGlow then
         local icon = button.Icon
         local glow = button:CreateTexture(nil, "OVERLAY", nil, 7)
         glow:SetTexture("Interface\\Buttons\\UI-ActionButton-Border")
         glow:SetBlendMode("ADD")
         glow:SetVertexColor(GOLD_R, GOLD_G, GOLD_B)
+        glow:SetAlpha(0.9)
         if icon then
             -- The border art has a wide transparent margin; overhang the icon
             -- so the visible ring sits just outside it.
@@ -159,12 +203,89 @@ local function EnsureOverlays(button)
         end
         glow:Hide()
         button.MooseGlow = glow
+
+        -- Pulse: 0.55 -> 1.0 -> 0.55 over 1.6 s, looping while shown.
+        local ag = glow:CreateAnimationGroup()
+        ag:SetLooping("REPEAT")
+        local up = ag:CreateAnimation("Alpha")
+        up:SetFromAlpha(0.55)
+        up:SetToAlpha(1.0)
+        up:SetDuration(0.8)
+        up:SetOrder(1)
+        local down = ag:CreateAnimation("Alpha")
+        down:SetFromAlpha(1.0)
+        down:SetToAlpha(0.55)
+        down:SetDuration(0.8)
+        down:SetOrder(2)
+        button.MoosePulse = ag
+    end
+
+    if not button.MooseFrame then
+        -- Own overlay frame so the lines sit above Blizzard's art and the
+        -- name plate, whatever their draw layers.
+        local f = CreateFrame("Frame", nil, button)
+        f:SetAllPoints(button)
+        f:SetFrameLevel((button:GetFrameLevel() or 0) + 2)
+        f:EnableMouse(false)
+        MakeRect(f, "OVERLAY", 6, 2, 2, FRAME_R, FRAME_G, FRAME_B)  -- outer, 2px outside the edge
+        MakeRect(f, "OVERLAY", 5, 1, 0, INNER_R, INNER_G, INNER_B)  -- inner, flush with the edge
+        f:Hide()
+        button.MooseFrame = f
+    end
+
+    if not button.MooseDim then
+        local f = CreateFrame("Frame", nil, button)
+        f:SetAllPoints(button)
+        f:SetFrameLevel((button:GetFrameLevel() or 0) + 1)
+        f:EnableMouse(false)
+        local sheet = f:CreateTexture(nil, "OVERLAY", nil, 1)
+        sheet:SetTexture(WHITE)
+        sheet:SetVertexColor(0, 0, 0)
+        sheet:SetAlpha(DIM_ALPHA)
+        sheet:SetAllPoints(f)
+        f:Hide()
+        button.MooseDim = f
     end
 end
 
+-- Back to neutral: value text blank and small, nothing glowing, dimmed or
+-- framed, pulse stopped.
 local function ClearOverlays(button)
-    if button.MooseValue then button.MooseValue:SetText("") end
+    if button.MooseValue then
+        button.MooseValue:SetText("")
+        button.MooseValue:SetFontObject("GameFontNormalSmall")
+        button.MooseValue:SetTextColor(0.8, 0.8, 0.8)
+    end
+    if button.MoosePulse then button.MoosePulse:Stop() end
     if button.MooseGlow then button.MooseGlow:Hide() end
+    if button.MooseFrame then button.MooseFrame:Hide() end
+    if button.MooseDim then button.MooseDim:Hide() end
+end
+
+local function SetWinner(button)
+    button.MooseValue:SetFontObject("GameFontNormal")
+    button.MooseValue:SetTextColor(FRAME_R, FRAME_G, FRAME_B)
+    button.MooseDim:Hide()
+    button.MooseFrame:Show()
+    button.MooseGlow:Show()
+    button.MoosePulse:Play()
+end
+
+local function SetLoser(button)
+    button.MooseFrame:Hide()
+    button.MooseGlow:Hide()
+    button.MoosePulse:Stop()
+    button.MooseDim:Show()
+end
+
+-- Every button we have ever decorated, so a hide can reset them all even
+-- when Blizzard has already changed what the frame shows.
+local decorated = {}
+
+local function ResetAll()
+    for button in pairs(decorated) do
+        ClearOverlays(button)
+    end
 end
 
 -------------------------------------------------------------------------------
@@ -261,9 +382,13 @@ local function UpdateRewards(trigger)
     Debug(("%s: %s, %d choice(s) via %s, log=%s"):format(trigger or "?",
         rewardsFrame:GetName() or "?", #choices, how, tostring(InQuestLog())))
 
+    -- Start every pass from neutral on everything we have ever touched, so
+    -- a button that stopped being a choice never keeps a stale frame.
+    ResetAll()
     for _, c in ipairs(choices) do
         EnsureOverlays(c.button)
         ClearOverlays(c.button)
+        decorated[c.button] = true
     end
     if not ValuesEnabled() or #choices == 0 then return end
 
@@ -286,11 +411,15 @@ local function UpdateRewards(trigger)
     end
 
     if HighlightEnabled() and #choices > 1 and best > 0 then
+        -- Winners get the full treatment; everything else is dimmed. Ties
+        -- all win, so nothing is dimmed when every choice matches.
         local winners = {}
         for i, c in ipairs(choices) do
             if values[i] == best then
-                c.button.MooseGlow:Show()
+                SetWinner(c.button)
                 winners[#winners + 1] = tostring(i)
+            else
+                SetLoser(c.button)
             end
         end
         Debug("  winner(s): #" .. table.concat(winners, ", #") .. " at " .. ns.Coins(best))
@@ -333,7 +462,16 @@ local function InstallHooks()
     end
     if not hooked.rewardPanel and QuestFrameRewardPanel and QuestFrameRewardPanel.HookScript then
         QuestFrameRewardPanel:HookScript("OnShow", function() ScheduleDelayed("panel OnShow") end)
+        -- Nothing may linger into the next quest: stop pulses, drop frames.
+        QuestFrameRewardPanel:HookScript("OnHide", ResetAll)
         hooked.rewardPanel = true
+    end
+    if not hooked.rewardsFrame then
+        local rf = QuestInfoRewardsFrame
+        if rf and rf.HookScript then
+            rf:HookScript("OnHide", ResetAll)
+            hooked.rewardsFrame = true
+        end
     end
     if hooked.showRewards and hooked.rewardPanel then
         frame:UnregisterEvent("ADDON_LOADED")
@@ -385,7 +523,7 @@ ns:RegisterModule({
           tooltip = "Prints each reward choice's sell price on its button.",
           onChange = function() ScheduleRerun("option") end },
         { key = "rewardHighlight", label = "Highlight the most valuable", default = true, parent = "rewardValues",
-          tooltip = "Gold border on the reward choice that vendors for the most. Ties are all highlighted.",
+          tooltip = "Gold frame and pulse on the reward that vendors for the most; the others are dimmed. Ties are all highlighted.",
           onChange = function() ScheduleRerun("option") end },
     },
     commands = {
