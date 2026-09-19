@@ -173,6 +173,22 @@ local function WantQuest(questID, apiFlag)
     return not IsLowLevel(questID, apiFlag)
 end
 
+-- Exposed for other modules (QuestLists tags the lines Auto Quest leaves
+-- alone). Returns skipped, reason where reason is "off", "shift", "grey" or
+-- "green". Pure query: nothing here changes Auto Quest behaviour.
+ns.AutoQuest = ns.AutoQuest or {}
+function ns.AutoQuest.WouldSkip(questID, apiFlag)
+    if not ns.db or not ns.db.autoQuest then return true, "off" end
+    if IsShiftKeyDown() then return true, "shift" end
+    if not ns.db.autoQuestSkipLow then return false end
+    if apiFlag == nil then apiFlag = ApiTrivial(questID) end
+    if ns.IsSecret(apiFlag) then return true, "grey" end
+    if not IsLowLevel(questID, apiFlag) then return false end
+    local colour = DifficultyColour(QuestLevel(questID), PlayerLevel())
+    if colour == "green" then return true, "green" end
+    return true, "grey"
+end
+
 local function CountTable(t)
     return type(t) == "table" and #t or 0
 end

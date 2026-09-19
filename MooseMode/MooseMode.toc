@@ -15,6 +15,7 @@ Modules\ActionBars.lua
 Modules\SpellRanks.lua
 Modules\AutoQuest.lua
 Modules\QuestRewards.lua
+Modules\QuestLists.lua
 Modules\AutoRepair.lua
 Modules\OneBag.lua
 Modules\GreySort.lua
