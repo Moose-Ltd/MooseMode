@@ -66,7 +66,9 @@ end
 -- mod = {
 --   key      = "autoSell",            -- unique id
 --   label    = "Auto Sell",           -- header in the options panel
---   options  = { { key, label, tooltip, default, onChange }, ... },
+--   options  = { { key, label, tooltip, default, onChange, parent }, ... },
+--              -- parent = "<optionKey>" makes this a sub-option: rendered
+--              -- indented under that option and greyed out while it is off
 --   OnInit   = function(mod) end,     -- called once ns.db exists (optional)
 --   commands = { sub = function(rest) end, ... },  -- /mm <sub> (optional)
 -- }
@@ -237,10 +239,32 @@ local HEADER_HEIGHT = 22
 local TITLE_HEIGHT  = 36
 
 local optionsFrame
-local checkboxes = {}   -- { frame = CheckButton, option = opt }
+local checkboxes = {}   -- CheckButtons, each with .option and .label
+local SUB_INDENT = 20   -- extra x offset for options that declare parent = "<key>"
+
+-- A sub-option (opt.parent = "<optionKey>") is greyed out and unclickable
+-- while its parent option is off.
+local function Checkbox_UpdateEnabled(cb)
+    local parent = cb.option.parent
+    if not parent then return end
+    if ns.db[parent] then
+        cb:Enable()
+        cb.label:SetTextColor(1, 1, 1)
+    else
+        cb:Disable()
+        cb.label:SetTextColor(0.5, 0.5, 0.5)
+    end
+end
+
+local function Checkbox_UpdateChildren(parentKey)
+    for _, cb in ipairs(checkboxes) do
+        if cb.option.parent == parentKey then Checkbox_UpdateEnabled(cb) end
+    end
+end
 
 local function Checkbox_Refresh(cb)
     cb:SetChecked(ns.db[cb.option.key] and true or false)
+    Checkbox_UpdateEnabled(cb)
 end
 
 local function Checkbox_OnClick(self)
@@ -249,6 +273,30 @@ local function Checkbox_OnClick(self)
     if self.option.onChange then
         self.option.onChange(checked, self.option)
     end
+    Checkbox_UpdateChildren(self.option.key)
+end
+
+-- Options in display order: each top-level option followed by its children,
+-- so a sub-option always sits directly under its parent whatever order the
+-- module listed them in. Children of unknown parents are appended at the end.
+local function OrderedOptions(mod)
+    local ordered, placed = {}, {}
+    for _, opt in ipairs(mod.options) do
+        if not opt.parent then
+            ordered[#ordered + 1] = opt
+            placed[opt] = true
+            for _, child in ipairs(mod.options) do
+                if child.parent == opt.key and not placed[child] then
+                    ordered[#ordered + 1] = child
+                    placed[child] = true
+                end
+            end
+        end
+    end
+    for _, opt in ipairs(mod.options) do
+        if not placed[opt] then ordered[#ordered + 1] = opt end
+    end
+    return ordered
 end
 
 local function Checkbox_OnEnter(self)
@@ -309,10 +357,10 @@ local function BuildOptionsPanel()
             header:SetText(mod.label or mod.key)
             y = y - HEADER_HEIGHT
 
-            for _, opt in ipairs(mod.options) do
+            for _, opt in ipairs(OrderedOptions(mod)) do
                 local cb = CreateFrame("CheckButton", nil, f, "ChatConfigCheckButtonTemplate")
                 cb:SetSize(26, 26)
-                cb:SetPoint("TOPLEFT", PANEL_PAD, y)
+                cb:SetPoint("TOPLEFT", PANEL_PAD + (opt.parent and SUB_INDENT or 0), y)
                 cb.option = opt
                 -- The template ships its own text region; we use our own label
                 -- so layout does not depend on template internals.
