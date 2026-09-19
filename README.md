@@ -53,23 +53,23 @@ Then start the game, click **AddOns** on the character select screen and make su
 
 | Module | Option | Default |
 |---|---|---|
-| Auto Sell | Auto sell junk at vendors | on |
+| Auto Sell | Sell grey items at vendors | on |
 | Auto Sell | Show sale summary in chat | on |
-| Auto Sell | Use Blizzard's sell-all-junk (ignores keep/junk lists) | off |
-| Fast Loot | Fast loot corpses | on |
-| Auto Quest | Auto accept quests | on |
-| Auto Quest | ↳ Include low-level quests (sub-option, greyed out while the parent is off) | off |
-| Auto Quest | ↳ Also skip quests below my level (green) (sub-option; no effect while low-level quests are included) | off |
-| Auto Quest | ↳ Auto complete quest hand-ins (sub-option; reward windows with several choices stay open) | on |
-| Auto Quest | Auto select gossip (only when it is the sole option and there are no quests) | on |
-| Auto Quest | ↳ Debug: log quest automation to chat (sub-option) | off |
-| Auto Repair | Auto repair at vendors | on |
-| Auto Repair | ↳ Use guild bank funds when allowed (sub-option) | off |
-| Auto Repair | ↳ Show repair cost in chat (sub-option) | on |
-| One Bag | One bag: show all bags as a single window | on |
-| One Bag | ↳ Auto cleanup when the bag opens (sub-option, at most once every 2 s, never in combat) | off |
-| One Bag | ↳ Cleanup fills bags from the last slot (sub-option) | off |
-| Beta Client | Hide the beta Issue Reporter button | on |
+| Auto Sell | Use Blizzard sell-all (ignores lists) | off |
+| Fast Loot | Loot everything instantly | on |
+| Auto Quest | Accept quests | on |
+| Auto Quest | ↳ Include low-level quests | off |
+| Auto Quest | ↳ Also skip quests below my level (no effect while low-level quests are included) | off |
+| Auto Quest | ↳ Complete quest hand-ins (reward windows with several choices stay open) | on |
+| Auto Quest | Pick the only gossip option | on |
+| Auto Quest | ↳ Debug log to chat | off |
+| Auto Repair | Repair at vendors | on |
+| Auto Repair | ↳ Use guild funds when allowed | off |
+| Auto Repair | ↳ Show repair cost in chat | on |
+| One Bag | Combine bags into one window | on |
+| One Bag | ↳ Sort bags on open (at most once every 2 s, never in combat) | off |
+| One Bag | ↳ Sort from the last slot | off |
+| Beta Client | Hide Issue Reporter button | on |
 
 ## Layout
 
