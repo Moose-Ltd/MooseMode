@@ -208,20 +208,11 @@ end
 -- Vivid colours
 -------------------------------------------------------------------------------
 
--- Vivid raises contrast relative to whatever the player has, rather than to
--- a fixed number: at least +15, never below 90, never above the maximum.
-local VIVID_CVAR   = "Contrast"
-local VIVID_BOOST  = 15
-local VIVID_FLOOR  = 90
-local VIVID_MAX    = 100
+-- Vivid sets contrast to a fixed value; untick puts back what the player had.
+local VIVID_CVAR  = "Contrast"
+local VIVID_VALUE = "75"
 
 local vividWarned = false
-
-local function VividTarget(current)
-    local cur = tonumber(current) or 50
-    local target = math.max(cur + VIVID_BOOST, VIVID_FLOOR)
-    return math.min(target, VIVID_MAX)
-end
 
 local function ApplyVivid(enabled, announce)
     local db = ns.db
@@ -236,17 +227,11 @@ local function ApplyVivid(enabled, announce)
 
     local current = GetVar(VIVID_CVAR)
     if enabled then
-        -- Snapshot first so untick is always symmetric, even if the player
-        -- was already at or above the target.
+        -- Snapshot first so untick is always symmetric.
         if db.graphicsPrevVivid == nil and current ~= nil then
             db.graphicsPrevVivid = { [VIVID_CVAR] = current }
         end
-        local base = current
-        if db.graphicsPrevVivid and db.graphicsPrevVivid[VIVID_CVAR] then
-            base = db.graphicsPrevVivid[VIVID_CVAR]
-        end
-        local target = tostring(VividTarget(base))
-        if current ~= target then SetVar(VIVID_CVAR, target) end
+        if current ~= VIVID_VALUE then SetVar(VIVID_CVAR, VIVID_VALUE) end
     else
         local prev = db.graphicsPrevVivid
         db.graphicsPrevVivid = nil
@@ -294,7 +279,7 @@ ns:RegisterModule({
           tooltip = "Lets you zoom the camera out further than the settings slider allows. Applied on every character.",
           onChange = function(checked) ApplyCamera(checked, true) end },
         { key = "graphicsVivid", label = "Vivid colours", default = false,
-          tooltip = "Raises contrast noticeably. Untick to return to your previous value.",
+          tooltip = "Sets contrast to 75. Untick to return to your previous value.",
           onChange = function(checked) ApplyVivid(checked, true) end },
     },
     OnInit = function()
