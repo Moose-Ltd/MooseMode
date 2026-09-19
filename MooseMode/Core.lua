@@ -682,6 +682,27 @@ local function CreateButtonRow(parent, opt, width)
     return row
 end
 
+-- Explainer text: a single muted, word-wrapped line or two under a
+-- section (or under an option when it names a parent). No control, no key.
+local function CreateNoteRow(parent, opt, width)
+    local indent = (opt.depth or 0) * SUB_INDENT
+    local row = CreateFrame("Frame", nil, parent)
+    row:SetWidth(width)
+
+    local text = row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    text:SetPoint("TOPLEFT", row, "TOPLEFT", indent, -6)
+    text:SetWidth(width - indent)
+    text:SetJustifyH("LEFT")
+    text:SetJustifyV("TOP")
+    text:SetWordWrap(true)
+    text:SetNonSpaceWrap(false)
+    text:SetText(opt.text or "")
+
+    local textHeight = text:GetStringHeight() or 0
+    row:SetHeight(math.max(12, textHeight) + 6)
+    return row
+end
+
 -- One module: purple header, hairline, then its option rows.
 local function CreateSection(parent, mod, width)
     local sec = CreateFrame("Frame", nil, parent)
@@ -714,6 +735,11 @@ local function CreateSection(parent, mod, width)
             end
         elseif opt.type == "choice" then
             local row = CreateChoiceRow(sec, opt, width)
+            row:SetPoint("TOPLEFT", 0, y)
+            y = y - row:GetHeight()
+            lastButtonRow = nil
+        elseif opt.type == "note" then
+            local row = CreateNoteRow(sec, opt, width)
             row:SetPoint("TOPLEFT", 0, y)
             y = y - row:GetHeight()
             lastButtonRow = nil
