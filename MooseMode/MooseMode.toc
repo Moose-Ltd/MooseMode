@@ -10,3 +10,4 @@
 Core.lua
 Modules\AutoSell.lua
 Modules\FastLoot.lua
+Modules\AutoQuest.lua
