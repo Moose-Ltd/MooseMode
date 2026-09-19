@@ -227,6 +227,145 @@ table.insert(ns.OnInitCallbacks, function()
 end)
 
 -------------------------------------------------------------------------------
+-- Options panel
+-------------------------------------------------------------------------------
+
+local PANEL_WIDTH   = 280
+local PANEL_PAD     = 16
+local ROW_HEIGHT    = 26
+local HEADER_HEIGHT = 22
+local TITLE_HEIGHT  = 36
+
+local optionsFrame
+local checkboxes = {}   -- { frame = CheckButton, option = opt }
+
+local function Checkbox_Refresh(cb)
+    cb:SetChecked(ns.db[cb.option.key] and true or false)
+end
+
+local function Checkbox_OnClick(self)
+    local checked = self:GetChecked() and true or false
+    ns.db[self.option.key] = checked
+    if self.option.onChange then
+        self.option.onChange(checked, self.option)
+    end
+end
+
+local function Checkbox_OnEnter(self)
+    if not self.option.tooltip then return end
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    GameTooltip:AddLine(self.option.label, 1, 1, 1)
+    GameTooltip:AddLine(self.option.tooltip, nil, nil, nil, true)
+    GameTooltip:Show()
+end
+
+local function CreateCloseButton(parent)
+    local b = CreateFrame("Button", nil, parent)
+    b:SetSize(32, 32)
+    b:SetPoint("TOPRIGHT", -2, -2)
+    b:SetNormalTexture("Interface\\Buttons\\UI-Panel-MinimizeButton-Up")
+    b:SetPushedTexture("Interface\\Buttons\\UI-Panel-MinimizeButton-Down")
+    b:SetHighlightTexture("Interface\\Buttons\\UI-Panel-MinimizeButton-Highlight", "ADD")
+    b:SetScript("OnClick", function() parent:Hide() end)
+    return b
+end
+
+local function BuildOptionsPanel()
+    if optionsFrame then return optionsFrame end
+
+    local f = CreateFrame("Frame", "MooseModeOptionsFrame", UIParent, "BackdropTemplate")
+    f:SetWidth(PANEL_WIDTH)
+    f:SetFrameStrata("DIALOG")
+    f:SetBackdrop({
+        bgFile   = "Interface\\DialogFrame\\UI-DialogBox-Background",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        tile = true, tileSize = 32, edgeSize = 16,
+        insets = { left = 4, right = 4, top = 4, bottom = 4 },
+    })
+    f:SetMovable(true)
+    f:SetClampedToScreen(true)
+    f:EnableMouse(true)
+    f:RegisterForDrag("LeftButton")
+    f:SetScript("OnDragStart", f.StartMoving)
+    f:SetScript("OnDragStop", f.StopMovingOrSizing)
+    f:Hide()
+
+    -- Escape closes it.
+    tinsert(UISpecialFrames, "MooseModeOptionsFrame")
+
+    local title = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    title:SetPoint("TOP", 0, -12)
+    title:SetText("|cffb04cffMooseMode|r")
+
+    CreateCloseButton(f)
+
+    -- Content: one header per module, one checkbox per option.
+    local y = -TITLE_HEIGHT
+    for _, mod in ipairs(ns.modules) do
+        if #mod.options > 0 then
+            local header = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+            header:SetPoint("TOPLEFT", PANEL_PAD, y - 4)
+            header:SetTextColor(0.7, 0.3, 1.0)
+            header:SetText(mod.label or mod.key)
+            y = y - HEADER_HEIGHT
+
+            for _, opt in ipairs(mod.options) do
+                local cb = CreateFrame("CheckButton", nil, f, "ChatConfigCheckButtonTemplate")
+                cb:SetSize(26, 26)
+                cb:SetPoint("TOPLEFT", PANEL_PAD, y)
+                cb.option = opt
+                -- The template ships its own text region; we use our own label
+                -- so layout does not depend on template internals.
+                if cb.Text then cb.Text:SetText("") end
+                local label = cb:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+                label:SetPoint("LEFT", cb, "RIGHT", 4, 0)
+                label:SetPoint("RIGHT", f, "RIGHT", -PANEL_PAD, 0)
+                label:SetJustifyH("LEFT")
+                label:SetWordWrap(false)
+                label:SetText(opt.label)
+                cb.label = label
+
+                cb:SetScript("OnClick", Checkbox_OnClick)
+                cb:SetScript("OnEnter", Checkbox_OnEnter)
+                cb:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+                checkboxes[#checkboxes + 1] = cb
+                y = y - ROW_HEIGHT
+            end
+            y = y - 6
+        end
+    end
+    if #checkboxes == 0 then
+        local none = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+        none:SetPoint("TOPLEFT", PANEL_PAD, y - 4)
+        none:SetText("No options registered.")
+        y = y - ROW_HEIGHT
+    end
+    f:SetHeight(-y + PANEL_PAD)
+
+    f:SetScript("OnShow", function()
+        for _, cb in ipairs(checkboxes) do Checkbox_Refresh(cb) end
+    end)
+
+    -- Initial anchor: just below the minimap button, else screen centre.
+    local mb = ns.GetMinimapButton and ns.GetMinimapButton()
+    if mb then
+        f:SetPoint("TOPRIGHT", mb, "BOTTOMLEFT", 8, -4)
+    else
+        f:SetPoint("CENTER")
+    end
+
+    optionsFrame = f
+    return f
+end
+
+function ns.ToggleOptions()
+    if not ns.db then return end
+    local f = BuildOptionsPanel()
+    if f:IsShown() then f:Hide() else f:Show() end
+end
+
+-------------------------------------------------------------------------------
 -- Slash commands
 -------------------------------------------------------------------------------
 
