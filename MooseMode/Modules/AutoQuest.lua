@@ -122,7 +122,7 @@ local function DifficultyColour(qlvl, plvl)
         end
     end
     local range = TrivialRange(plvl)
-    if range and qlvl <= plvl - range then return "grey" end
+    if range and qlvl < plvl - range then return "grey" end
     if qlvl <= plvl - 3 then return "green" end
     return "yellow"
 end
@@ -134,7 +134,8 @@ local function LowThreshold()
 end
 
 -- Low level = the client says trivial, OR the quest level is at or below
--- the player's grey threshold. The API flag alone proved unreliable on
+-- the player's grey threshold (Blizzard: grey when player - quest > range,
+-- so a quest exactly at the range is still green). The API flag alone proved unreliable on
 -- Forever, so the level check is a second opinion. With the threshold at
 -- "green", quests the game colours green count as low level too.
 local function IsLowLevel(questID, apiFlag)
@@ -143,7 +144,7 @@ local function IsLowLevel(questID, apiFlag)
     local qlvl, plvl = QuestLevel(questID), PlayerLevel()
     if not qlvl or not plvl then return false end
     local range = TrivialRange(plvl)
-    if range and qlvl <= plvl - range then return true end
+    if range and qlvl < plvl - range then return true end
     if LowThreshold() == "green" then
         local colour = DifficultyColour(qlvl, plvl)
         if colour == "green" or colour == "grey" then return true end
@@ -215,7 +216,7 @@ local function LevelInfo(questID, apiFlag)
     if apiFlag == nil then apiFlag = ApiTrivial(questID) end
     local qlvl, plvl = QuestLevel(questID), PlayerLevel()
     local range = TrivialRange(plvl)
-    local greyAt = (plvl and range) and (plvl - range) or nil
+    local greyAt = (plvl and range) and (plvl - range - 1) or nil
     local verdict
     if not ns.db.autoQuestSkipLow then
         verdict = "off"
