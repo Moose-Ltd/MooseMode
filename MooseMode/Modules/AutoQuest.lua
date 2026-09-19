@@ -3,18 +3,21 @@
 --
 -- Accepts quests automatically from quest detail windows, quest greeting
 -- lists and gossip windows, hands in completed quests, and picks up the
--- follow-up quests that hand-ins unlock. Low-level quests (the client says
--- trivial, or the quest level is at or below the grey threshold) are
--- skipped unless the sub-option is on. Hold SHIFT while talking to an NPC
--- to skip it all.
+-- follow-up quests that hand-ins unlock. Low-level quests are skipped by
+-- default: grey ones (the client says trivial, or the quest level is at or
+-- below the grey threshold), or green ones too if the threshold is set to
+-- "green". Hold SHIFT while talking to an NPC to skip it all.
 --
 -- Options (account-wide):
---   autoQuest           Auto accept quests
---   autoQuestLowLevel   Include low-level quests (sub-option)
---   autoQuestSkipBelowLevel  Also skip quests the game colours green (sub-option)
---   autoQuestTurnIn     Auto complete quest hand-ins (sub-option)
---   autoGossip          Auto select gossip when it is the only option
---   autoQuestDebug      Log every event and decision to chat (sub-option)
+--   autoQuest             Accept quests
+--   autoQuestSkipLow      Skip low-level quests (sub-option)
+--   autoQuestLowThreshold "grey" or "green": how low is low (sub-sub-option)
+--   autoQuestTurnIn       Complete quest hand-ins (sub-option)
+--   autoGossip            Pick the only gossip option
+--   autoQuestDebug        Log every event and decision to chat (sub-option)
+--
+-- Older saved variables carried autoQuestLowLevel (include low-level) and
+-- autoQuestSkipBelowLevel (also skip green); OnInit migrates them once.
 --
 -- Flow at an NPC: hand in anything complete first, then accept anything
 -- available, then (gossip windows only) pick the sole gossip option. After a
@@ -124,10 +127,16 @@ local function DifficultyColour(qlvl, plvl)
     return "yellow"
 end
 
+-- Which quests count as low level: "grey" (the default) or "green", which
+-- takes green ones too.
+local function LowThreshold()
+    return (ns.db and ns.db.autoQuestLowThreshold == "green") and "green" or "grey"
+end
+
 -- Low level = the client says trivial, OR the quest level is at or below
 -- the player's grey threshold. The API flag alone proved unreliable on
--- Forever, so the level check is a second opinion. With the stricter
--- sub-option on, quests the game colours green count as low level too.
+-- Forever, so the level check is a second opinion. With the threshold at
+-- "green", quests the game colours green count as low level too.
 local function IsLowLevel(questID, apiFlag)
     if apiFlag == nil then apiFlag = ApiTrivial(questID) end
     if not ns.IsSecret(apiFlag) and apiFlag then return true end
@@ -135,7 +144,7 @@ local function IsLowLevel(questID, apiFlag)
     if not qlvl or not plvl then return false end
     local range = TrivialRange(plvl)
     if range and qlvl <= plvl - range then return true end
-    if ns.db.autoQuestSkipBelowLevel then
+    if LowThreshold() == "green" then
         local colour = DifficultyColour(qlvl, plvl)
         if colour == "green" or colour == "grey" then return true end
     end
@@ -160,7 +169,7 @@ end
 
 local function WantQuest(questID, apiFlag)
     if ns.IsSecret(apiFlag) then return false end
-    if ns.db.autoQuestLowLevel then return true end
+    if not ns.db.autoQuestSkipLow then return true end
     return not IsLowLevel(questID, apiFlag)
 end
 
@@ -191,9 +200,15 @@ local function LevelInfo(questID, apiFlag)
     local qlvl, plvl = QuestLevel(questID), PlayerLevel()
     local range = TrivialRange(plvl)
     local greyAt = (plvl and range) and (plvl - range) or nil
-    return ("trivial=%s qlvl=%s plvl=%s grey<=%s colour=%s low=%s"):format(
+    local verdict
+    if not ns.db.autoQuestSkipLow then
+        verdict = "off"
+    else
+        verdict = Str(IsLowLevel(questID, apiFlag))
+    end
+    return ("trivial=%s qlvl=%s plvl=%s grey<=%s colour=%s threshold=%s low=%s"):format(
         Str(apiFlag), Str(qlvl), Str(plvl), Str(greyAt), Str(DifficultyColour(qlvl, plvl)),
-        Str(IsLowLevel(questID, apiFlag)))
+        LowThreshold(), verdict)
 end
 
 -- When a list window (greeting or gossip) re-opens within a whisker of our
@@ -494,11 +509,12 @@ ns:RegisterModule({
     group = "Quests",
     options = {
         { key = "autoQuest", label = "Accept quests", default = true,
-          tooltip = "Accept quests from quest givers automatically. Grey quests are skipped unless you include them below." },
-        { key = "autoQuestLowLevel", label = "Include low-level quests", default = false, parent = "autoQuest",
-          tooltip = "Also accept quests that are grey for your level." },
-        { key = "autoQuestSkipBelowLevel", label = "Also skip quests below my level", default = false, parent = "autoQuest",
-          tooltip = "Also skip quests the game colours green (easy), not just grey. Does nothing while low-level quests are included." },
+          tooltip = "Accept quests from quest givers automatically." },
+        { key = "autoQuestSkipLow", label = "Skip low-level quests", default = true, parent = "autoQuest",
+          tooltip = "Quests the game colours grey (or green, below) are not accepted." },
+        { type = "choice", key = "autoQuestLowThreshold", label = "Skip when", default = "grey", parent = "autoQuestSkipLow",
+          values = { { value = "grey", text = "Grey only" }, { value = "green", text = "Green and grey" } },
+          tooltip = "Grey: only trivial quests. Green and grey: anything the game colours as easy." },
         { key = "autoQuestTurnIn", label = "Complete quest hand-ins", default = true, parent = "autoQuest",
           tooltip = "Hand in finished quests and pick up any follow-up. When there is a choice of rewards, the window stays open for you to pick." },
         { key = "autoGossip", label = "Pick the only gossip option", default = true,
@@ -506,6 +522,21 @@ ns:RegisterModule({
         { key = "autoQuestDebug", label = "Debug log to chat", default = false, parent = "autoQuest",
           tooltip = "Print every quest event and decision to chat. Same as /mm questdebug." },
     },
+    -- One-time migration from the two older low-level keys.
+    OnInit = function()
+        local db = ns.db
+        if db.autoQuestLowLevel ~= nil then
+            db.autoQuestSkipLow = not db.autoQuestLowLevel
+        end
+        if db.autoQuestSkipBelowLevel then
+            db.autoQuestLowThreshold = "green"
+        end
+        db.autoQuestLowLevel = nil
+        db.autoQuestSkipBelowLevel = nil
+        if db.autoQuestLowThreshold ~= "grey" and db.autoQuestLowThreshold ~= "green" then
+            db.autoQuestLowThreshold = "grey"
+        end
+    end,
     commands = {
         questdebug = function()
             ns.db.autoQuestDebug = not ns.db.autoQuestDebug
