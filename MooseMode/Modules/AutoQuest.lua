@@ -8,6 +8,7 @@
 -- Options (account-wide):
 --   autoQuest           Auto accept quests
 --   autoQuestLowLevel   Include low-level quests (sub-option)
+--   autoGossip          Auto select gossip when it is the only option
 -------------------------------------------------------------------------------
 
 local ADDON, ns = ...
@@ -99,8 +100,40 @@ local function AcceptGossipQuest()
     return false
 end
 
+-------------------------------------------------------------------------------
+-- Gossip
+-------------------------------------------------------------------------------
+
+local function CountTable(t)
+    return type(t) == "table" and #t or 0
+end
+
+-- Auto-select a gossip option only when it is the sole thing on offer: no
+-- quests to pick up or hand in, and exactly one option. Multi-option menus
+-- (vendors, trainers, flight masters with extra choices) are left alone.
+local function SelectOnlyGossipOption()
+    if not Enabled("autoGossip") then return false end
+    if not C_GossipInfo or not C_GossipInfo.GetOptions or not C_GossipInfo.SelectOption then return false end
+
+    local okA, active = pcall(C_GossipInfo.GetNumActiveQuests)
+    if not okA or ns.IsSecret(active) or (active or 0) > 0 then return false end
+
+    local okQ, available = pcall(C_GossipInfo.GetAvailableQuests)
+    if not okQ or CountTable(available) > 0 then return false end
+
+    local okO, options = pcall(C_GossipInfo.GetOptions)
+    if not okO or CountTable(options) ~= 1 then return false end
+
+    local opt = options[1]
+    local id = opt and opt.gossipOptionID
+    if not id or ns.IsSecret(id) then return false end
+    C_GossipInfo.SelectOption(id)
+    return true
+end
+
 local function OnGossipShow()
     if AcceptGossipQuest() then return end
+    SelectOnlyGossipOption()
 end
 
 -------------------------------------------------------------------------------
@@ -134,5 +167,7 @@ ns:RegisterModule({
           tooltip = "Accept quests automatically from quest givers. Low-level (grey) quests are skipped unless the sub-option below is on. Hold Shift while talking to an NPC to skip." },
         { key = "autoQuestLowLevel", label = "Include low-level quests", default = false, parent = "autoQuest",
           tooltip = "Also accept quests that are trivial (grey) for your level." },
+        { key = "autoGossip", label = "Auto select gossip", default = true,
+          tooltip = "When an NPC offers exactly one gossip option and no quests, pick it automatically. Menus with several choices are never touched. Hold Shift to skip." },
     },
 })
