@@ -111,6 +111,74 @@ local function ApplyDefaults(db)
     end
 end
 
+-------------------------------------------------------------------------------
+-- Shared helpers for modules
+-------------------------------------------------------------------------------
+
+-- CVar access, pcall-wrapped, C_CVar first with the globals as fallback.
+ns.CVar = {}
+
+function ns.CVar.Exists(name)
+    local getInfo = (C_CVar and C_CVar.GetCVarInfo) or GetCVarInfo
+    if not getInfo then return false end
+    local ok, value = pcall(getInfo, name)
+    return ok and value ~= nil
+end
+
+function ns.CVar.Get(name)
+    local get = (C_CVar and C_CVar.GetCVar) or GetCVar
+    if not get then return nil end
+    local ok, value = pcall(get, name)
+    if not ok then return nil end
+    return value
+end
+
+function ns.CVar.Set(name, value)
+    local set = (C_CVar and C_CVar.SetCVar) or SetCVar
+    if not set then return false end
+    local ok = pcall(set, name, tostring(value))
+    return ok
+end
+
+-- Drive a per-character CVar from an account-wide option. Enabling remembers
+-- the current value under ns.db[dbKey] (always, even when it already equals
+-- the target, so disabling later restores exactly what the character had)
+-- and writes the target. Disabling restores the remembered value and forgets
+-- it; with nothing remembered it leaves the CVar alone. Returns true when the
+-- CVar was written.
+function ns.CVar.ApplyWithSnapshot(name, target, dbKey, enabled)
+    local db = ns.db
+    if not db then return false end
+    target = tostring(target)
+    local current = ns.CVar.Get(name)
+    if enabled then
+        if db[dbKey] == nil and current ~= nil then db[dbKey] = current end
+        if current ~= target then return ns.CVar.Set(name, target) end
+        return false
+    end
+    local restore = db[dbKey]
+    db[dbKey] = nil
+    if restore ~= nil and current ~= tostring(restore) then
+        return ns.CVar.Set(name, restore)
+    end
+    return false
+end
+
+-- Event names differ between client lines; register only those that exist.
+function ns.SafeRegisterEvent(frame, event)
+    local ok = pcall(frame.RegisterEvent, frame, event)
+    return ok
+end
+
+-- Highest bag ID of the ordinary bags (backpack is 0). The combined bag
+-- window ignores a reagent bag, so every module counts the same way.
+function ns.NumBags()
+    if Constants and Constants.InventoryConstants and Constants.InventoryConstants.NumBagSlots then
+        return Constants.InventoryConstants.NumBagSlots
+    end
+    return NUM_BAG_SLOTS or 4
+end
+
 -- Placeholders; the minimap button and options panel sections replace these.
 ns.ToggleOptions = ns.ToggleOptions or function() ns.Print("Options panel not available.") end
 ns.ToggleMinimap = ns.ToggleMinimap or function() ns.Print("Minimap button not available.") end
@@ -140,6 +208,7 @@ local SV_CHUNK_MAX    = 255 - #SV_MACRO_HEAD
 local SV_DEBOUNCE     = 2
 
 local svPending, svScheduled, svWarned, svRestored = false, false, false, false
+local svDirty, svMacrosReady, svAbsentConfirmed = false, false, false
 
 local function OptionByKey(key)
     for _, mod in ipairs(ns.modules) do
@@ -187,33 +256,47 @@ end
 
 -- Every scalar in ns.db (and every scalar one level down in a sub-table)
 -- whose value differs from its default. Option keys default to the option's
--- default; core sub-tables to CORE_DEFAULTS; anything else to nil.
+-- default; core sub-tables to CORE_DEFAULTS; anything else to nil. A false
+-- default is a real default, distinct from "no default".
+local function DefaultFor(key)
+    local opt = OptionByKey(key)
+    local default
+    if opt then default = opt.default end
+    return default
+end
+
+local function SubDefaultFor(tableKey, key)
+    local defaults = CORE_DEFAULTS[tableKey]
+    local default
+    if type(defaults) == "table" then default = defaults[key] end
+    return default
+end
+
 local function SvSerialize()
     local parts = { SV_TAG }
     local db = ns.db
     for _, k in ipairs(SortedKeys(db)) do
         local v = db[k]
         if type(v) == "table" then
-            local defaults = CORE_DEFAULTS[k]
             for _, k2 in ipairs(SortedKeys(v)) do
                 local v2 = v[k2]
                 if type(v2) ~= "table" then
-                    local default = type(defaults) == "table" and defaults[k2] or nil
-                    local enc = (v2 ~= default) and SvEncodeValue(v2) or nil
+                    local enc = (v2 ~= SubDefaultFor(k, k2)) and SvEncodeValue(v2) or nil
                     if enc then parts[#parts + 1] = k .. "." .. k2 .. "=" .. enc end
                 end
             end
         else
-            local opt = OptionByKey(k)
-            local default = opt and opt.default or nil
-            local enc = (v ~= default) and SvEncodeValue(v) or nil
+            local enc = (v ~= DefaultFor(k)) and SvEncodeValue(v) or nil
             if enc then parts[#parts + 1] = k .. "=" .. enc end
         end
     end
     return table.concat(parts, ";")
 end
 
-local function SvApply(db, payload)
+-- Write a payload into db. With `preserve`, keys the user has already moved
+-- away from their default this session are left alone, so a late restore
+-- never undoes a click that happened before the macros became readable.
+local function SvApply(db, payload, preserve)
     if not payload or payload:sub(1, #SV_TAG + 1) ~= SV_TAG .. ";" and payload ~= SV_TAG then
         return 0
     end
@@ -226,11 +309,12 @@ local function SvApply(db, payload)
                 local a, b = k:match("^([%w_]+)%.([%w_]+)$")
                 if a then
                     if type(db[a]) ~= "table" then db[a] = {} end
-                    db[a][b] = v
+                    local keep = preserve and db[a][b] ~= nil and db[a][b] ~= SubDefaultFor(a, b)
+                    if not keep then db[a][b] = v; n = n + 1 end
                 else
-                    db[k] = v
+                    local keep = preserve and db[k] ~= nil and db[k] ~= DefaultFor(k)
+                    if not keep then db[k] = v; n = n + 1 end
                 end
-                n = n + 1
             end
         end
     end
@@ -270,6 +354,13 @@ local function SvWriteMacros()
     end
     if #chunks == 0 then chunks[1] = "" end
 
+    -- A bare tag over a backup that holds real values is only ever right when
+    -- the user deliberately reset things this session.
+    if payload == SV_TAG and not svDirty then
+        local existing = SvReadMacros()
+        if existing and existing ~= SV_TAG and existing ~= "" then return true end
+    end
+
     local maxAccount = MAX_ACCOUNT_MACROS or 120
     for i, chunk in ipairs(chunks) do
         local name = SV_MACRO_PREFIX .. i
@@ -296,12 +387,43 @@ local function SvWriteMacros()
     return true
 end
 
+-- Pull the backup into the saved table. Returns true when applied. Once the
+-- macro list is known to be loaded, a missing MMcfg1 is taken as "no backup".
+local function SvTryRestore(db, preserve)
+    if svRestored then return true end
+    local payload = SvReadMacros()
+    if not payload then
+        if svMacrosReady then svAbsentConfirmed = true end
+        return false
+    end
+    local n = SvApply(db, payload, preserve)
+    svRestored = true
+    ns.Print(("settings restored from backup (the beta client does not load saved variables yet), %d value%s."):format(n, n == 1 and "" or "s"))
+    return true
+end
+
+-- Writing is allowed once the backup has been restored, or once the macro
+-- list is known to be loaded and holds no backup, or when the user changed
+-- something this session (their intent wins; a pending restore is merged
+-- underneath first so nothing they did not touch is lost).
+local function SvMayWrite()
+    return svRestored or svAbsentConfirmed or svDirty
+end
+
 local function SvFlush()
     svScheduled = false
     if not svPending or not ns.db then return end
     if InCombatLockdown and InCombatLockdown() then
         -- PLAYER_REGEN_ENABLED re-schedules.
         return
+    end
+    if not SvMayWrite() then
+        -- Leave it pending; a later restore or confirmation re-schedules.
+        return
+    end
+    if svDirty and not svRestored and not svAbsentConfirmed then
+        SvTryRestore(ns.db, true)
+        if svRestored and ns.RefreshAfterRestore then ns.RefreshAfterRestore() end
     end
     svPending = false
     local ok, done = pcall(SvWriteMacros)
@@ -311,8 +433,7 @@ local function SvFlush()
     end
 end
 
--- Modules call this after changing ns.db outside the dialog. Debounced.
-function ns.SaveSettings()
+local function SvSchedule()
     if not ns.db then return end
     svPending = true
     if svScheduled then return end
@@ -324,28 +445,37 @@ function ns.SaveSettings()
     end
 end
 
--- Pull the backup into an empty saved table. Returns true when applied.
-local function SvTryRestore(db)
-    if svRestored then return true end
-    local payload = SvReadMacros()
-    if not payload then return false end
-    local n = SvApply(db, payload)
-    svRestored = true
-    ns.Print(("settings restored from backup (the beta client does not load saved variables yet), %d value%s."):format(n, n == 1 and "" or "s"))
-    return true
+-- Modules and the dialog call this after the user changed ns.db. Debounced.
+function ns.SaveSettings()
+    svDirty = true
+    SvSchedule()
+end
+
+-- Late restore: the saved table was empty at ADDON_LOADED and the macros were
+-- not readable yet. Re-apply defaults and refresh what is already built.
+local function SvLateRestore()
+    if svRestored or svAbsentConfirmed or not ns.db then return end
+    if SvTryRestore(ns.db, true) then
+        ApplyDefaults(ns.db)
+        for _, mod in ipairs(ns.modules) do
+            if mod.OnInit and mod.reinitSafe then mod.OnInit(mod) end
+        end
+        if ns.RefreshAfterRestore then ns.RefreshAfterRestore() end
+    end
+    if (svRestored or svAbsentConfirmed) and svPending and not svScheduled then SvSchedule() end
 end
 
 -------------------------------------------------------------------------------
 -- Load
 -------------------------------------------------------------------------------
 
-local svNeedsLateRestore = false
-
 local loader = CreateFrame("Frame")
 loader:RegisterEvent("ADDON_LOADED")
 loader:RegisterEvent("PLAYER_LOGIN")
+loader:RegisterEvent("PLAYER_ENTERING_WORLD")
 loader:RegisterEvent("PLAYER_LOGOUT")
 loader:RegisterEvent("PLAYER_REGEN_ENABLED")
+pcall(loader.RegisterEvent, loader, "UPDATE_MACROS")
 loader:SetScript("OnEvent", function(self, event, name)
     if event == "ADDON_LOADED" then
         if name ~= ADDON then return end
@@ -355,8 +485,11 @@ loader:SetScript("OnEvent", function(self, event, name)
         ns.db = MooseModeDB
         if next(ns.db) == nil then
             -- Nothing loaded: either a fresh install or the client bug.
-            -- The macro API may not answer this early; retry at login.
-            svNeedsLateRestore = not SvTryRestore(ns.db)
+            -- The macro API may not answer this early; later events retry.
+            SvTryRestore(ns.db, false)
+        else
+            -- The client loaded the saved table; the backup is a mirror only.
+            svRestored = true
         end
         ApplyDefaults(ns.db)
 
@@ -365,20 +498,27 @@ loader:SetScript("OnEvent", function(self, event, name)
         end
         for _, fn in ipairs(ns.OnInitCallbacks) do fn() end
 
+    elseif event == "UPDATE_MACROS" then
+        svMacrosReady = true
+        SvLateRestore()
+
     elseif event == "PLAYER_LOGIN" then
         if not ns.db then return end
-        if svNeedsLateRestore then
-            svNeedsLateRestore = false
-            if SvTryRestore(ns.db) then
-                ApplyDefaults(ns.db)
-                for _, mod in ipairs(ns.modules) do
-                    if mod.OnInit and mod.reinitSafe then mod.OnInit(mod) end
-                end
-                if ns.RefreshAfterRestore then ns.RefreshAfterRestore() end
-            end
+        SvLateRestore()
+        -- Keep the backup current once it is safe to write it.
+        if svRestored or svAbsentConfirmed then SvSchedule() end
+
+    elseif event == "PLAYER_ENTERING_WORLD" then
+        if not ns.db then return end
+        SvLateRestore()
+        -- The macro list has certainly loaded a few seconds into the world;
+        -- a missing MMcfg1 by then means there is no backup to protect.
+        if not svRestored and not svAbsentConfirmed and C_Timer and C_Timer.After then
+            C_Timer.After(5, function()
+                svMacrosReady = true
+                SvLateRestore()
+            end)
         end
-        -- Keep the backup current even when nothing has changed yet.
-        ns.SaveSettings()
 
     elseif event == "PLAYER_LOGOUT" then
         if svPending then
@@ -387,7 +527,7 @@ loader:SetScript("OnEvent", function(self, event, name)
         end
 
     elseif event == "PLAYER_REGEN_ENABLED" then
-        if svPending and not svScheduled then ns.SaveSettings() end
+        if svPending and not svScheduled then SvSchedule() end
     end
 end)
 
