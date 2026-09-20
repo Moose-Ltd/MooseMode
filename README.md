@@ -51,7 +51,7 @@ For contributors: [`CONTRIBUTING.md`](./CONTRIBUTING.md) · [`CHANGELOG.md`](./C
 | Fast Loot     | Loot      | Takes every slot the instant loot is ready. Sub-option: leave grey items. Takes over the game's auto-loot setting while on. | on |
 | Pet Attack    | Combat    | Creates one macro per damage spell with `/petattack` in front. Sub-option: only on pet classes.             | off     |
 | Spell Ranks   | Combat    | Swaps bar buttons holding an old rank for the highest one you know. Sub-option: report swaps in chat.       | on      |
-| One Bag       | Interface | Blizzard's combined bag window. Sub-options: sort on open, pack items top or bottom.                         | on      |
+| One Bag       | Interface | Blizzard's combined bag window. Sub-option: sort on open. The sort always packs from the top.                         | on      |
 | Action Bars   | Interface | Hides macro names under action bar icons.                                                                   | on      |
 | Graphics      | Interface | Max camera zoom distance (on) and a vivid-colours contrast tick (off).                                       | mixed   |
 | Beta Client   | Interface | Hides the beta Issue Reporter button.                                                                       | on      |
