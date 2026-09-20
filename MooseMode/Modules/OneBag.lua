@@ -102,14 +102,52 @@ local function HookCombinedBags()
     hookedCombined = true
 end
 
--- Where the sort packs items. Observed live on Forever's combined bag:
--- SetSortBagsRightToLeft(false) packs items toward the BOTTOM-right and
--- leaves free slots at the top; SetSortBagsRightToLeft(true) packs toward
--- the TOP-left with free slots at the bottom. So "top" means true.
-local function ApplyPack(pack)
-    if C_Container and C_Container.SetSortBagsRightToLeft then
-        pcall(C_Container.SetSortBagsRightToLeft, pack ~= "bottom")
+-- Where the sort packs items. The combined bag displays the backpack first
+-- (top rows) and the last bag at the bottom, and Blizzard's sort packs bags
+-- left to right (backpack first) unless SetSortBagsRightToLeft(true). So
+-- "top" = false (backpack first), "bottom" = true. New items follow the same
+-- direction via SetInsertItemsLeftToRight.
+--
+-- Both directions looked bottom-packed on a live bag because the backpack
+-- carried the "ignore this bag when sorting" flag, which makes the sort skip
+-- it entirely and strands whatever is in it. Sorting on open only makes sense
+-- when no bag is ignored, so the flags are cleared here.
+local warnedIgnored = false
+local function ClearIgnoreFlags()
+    if not C_Container then return end
+    local wasIgnored = false
+    if C_Container.GetBackpackAutosortDisabled and C_Container.SetBackpackAutosortDisabled then
+        local ok, disabled = pcall(C_Container.GetBackpackAutosortDisabled)
+        if ok and disabled and not ns.IsSecret(disabled) then
+            wasIgnored = true
+            pcall(C_Container.SetBackpackAutosortDisabled, false)
+        end
     end
+    local flag = Enum and Enum.BagSlotFlags and Enum.BagSlotFlags.DisableAutoSort
+    if flag and C_Container.GetBagSlotFlag and C_Container.SetBagSlotFlag then
+        for bag = 1, ns.NumBags() do
+            local ok, set = pcall(C_Container.GetBagSlotFlag, bag, flag)
+            if ok and set and not ns.IsSecret(set) then
+                wasIgnored = true
+                pcall(C_Container.SetBagSlotFlag, bag, flag, false)
+            end
+        end
+    end
+    if wasIgnored and not warnedIgnored then
+        warnedIgnored = true
+        ns.Print("One Bag: a bag was set to be ignored by sorting; cleared so the sort covers every bag.")
+    end
+end
+
+local function ApplyPack(pack)
+    local bottom = (pack == "bottom")
+    if C_Container and C_Container.SetSortBagsRightToLeft then
+        pcall(C_Container.SetSortBagsRightToLeft, bottom)
+    end
+    if C_Container and C_Container.SetInsertItemsLeftToRight then
+        pcall(C_Container.SetInsertItemsLeftToRight, not bottom)
+    end
+    ClearIgnoreFlags()
 end
 
 -------------------------------------------------------------------------------
