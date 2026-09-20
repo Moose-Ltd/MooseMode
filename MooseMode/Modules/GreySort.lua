@@ -85,6 +85,7 @@ local function ReadBags()
                     local count = info.stackCount or 1
                     if ns.IsSecret(count) then count = 1 end
                     entry.value = (info.hasNoValue and 0 or SellPrice(info.hyperlink)) * count
+                    entry.count = count
                     -- Items with the same id and stack size are interchangeable.
                     entry.sig = tostring(info.itemID) .. ":" .. tostring(count)
                 end
@@ -93,6 +94,33 @@ local function ReadBags()
         end
     end
     return list, locked
+end
+
+-- Position-independent content fingerprint of every bag: one entry per
+-- occupied slot ("itemID:stackCount", locked slots included), sorted and
+-- joined, then reduced to a short hash so it stays cheap to store in the
+-- settings backup. Returns the fingerprint and true if any slot is locked.
+local function Fingerprint()
+    local parts, locked = {}, false
+    for bag = 0, ns.NumBags() do
+        local slots = C_Container.GetContainerNumSlots(bag) or 0
+        for slot = 1, slots do
+            local info = C_Container.GetContainerItemInfo(bag, slot)
+            if info and info.itemID then
+                if info.isLocked then locked = true end
+                local count = info.stackCount or 1
+                if ns.IsSecret(count) then count = 1 end
+                parts[#parts + 1] = tostring(info.itemID) .. ":" .. tostring(count)
+            end
+        end
+    end
+    table.sort(parts)
+    local joined = table.concat(parts, ",")
+    local h = 5381
+    for i = 1, #joined do
+        h = (h * 33 + joined:byte(i)) % 2147483647
+    end
+    return tostring(#parts) .. "-" .. tostring(h), locked
 end
 
 -- Read a single slot into the same entry shape ReadBags produces.
@@ -108,6 +136,7 @@ local function ReadSlot(bag, slot)
             local count = info.stackCount or 1
             if ns.IsSecret(count) then count = 1 end
             entry.value = (info.hasNoValue and 0 or SellPrice(info.hyperlink)) * count
+            entry.count = count
             entry.sig = tostring(info.itemID) .. ":" .. tostring(count)
         end
     end
@@ -147,9 +176,14 @@ local function Plan(list)
         if e.grey then greys[#greys + 1] = e end
     end
     if #greys == 0 then return nil end
+    -- Fully deterministic: value, then item id, then stack size, all
+    -- ascending, so two passes over the same contents agree on every slot
+    -- and equal-value greys never trade places.
     table.sort(greys, function(a, b)
         if a.value ~= b.value then return a.value < b.value end
-        if a.sig ~= b.sig then return a.sig < b.sig end
+        local ai, bi = a.info.itemID or 0, b.info.itemID or 0
+        if ai ~= bi then return ai < bi end
+        if a.count ~= b.count then return (a.count or 0) < (b.count or 0) end
         return false
     end)
 
@@ -220,11 +254,27 @@ local function ResetState()
     steps, moved, lockWaits, lastMove, noops = 0, 0, 0, nil, 0
 end
 
-local function Finish()
+-- After a cleanup has fully finished, remember what the bag held so One Bag
+-- does not sort it again on the next open unless the contents changed.
+local function RecordCleanup()
+    if not ns.db then return end
+    local fp, locked = Fingerprint()
+    if locked then return end
+    if ns.db.oneBagLastSorted ~= fp then
+        ns.db.oneBagLastSorted = fp
+        if ns.SaveSettings then ns.SaveSettings() end
+    end
+end
+
+-- `complete` is true when the pass ended because there was nothing left to
+-- do (every grey in place, or nothing to move); a pass cut short by combat,
+-- a vendor, a step cap or refused swaps does not count as a cleanup.
+local function Finish(complete)
     if moved > 0 and ns.db and ns.db.greySortReport then
         ns.Print(("Grey Sort: moved %d item%s."):format(moved, moved == 1 and "" or "s"))
     end
     ResetState()
+    if complete then RecordCleanup() end
 end
 
 -- Stop a running pass dead: pending step timers are invalidated by the
@@ -290,7 +340,7 @@ Step = function()
             if noops >= MAX_NOOPS then Finish() return end
             local ok, locked = MakePlan()
             if locked then Later(Step) return end
-            if not ok then Finish() return end
+            if not ok then Finish(true) return end
         end
         if landed then
             -- Keep the snapshot current without a full read.
@@ -301,7 +351,7 @@ Step = function()
         end
     end
 
-    if not plan then Finish() return end
+    if not plan then Finish(true) return end
 
     for _, p in ipairs(plan) do
         local occupant = snapshot[p.index]
@@ -329,7 +379,7 @@ Step = function()
             return
         end
     end
-    Finish()
+    Finish(true)
 end
 
 -- Start a pass from a settled bag. A pass already running is cancelled so
@@ -357,15 +407,39 @@ local function Run(force)
             Later(start)
             return
         end
-        if not ok then ResetState() return end
+        if not ok then
+            -- Nothing to move, or the layout contradicts the sort direction:
+            -- either way the cleanup is over for this bag content.
+            ResetState()
+            RecordCleanup()
+            return
+        end
         Step()
     end
     start()
 end
 
+-- True when every grey already sits on its planned position (or there are
+-- no greys), false when a pass would move something or the layout cannot
+-- be planned. Read-only; nothing is moved.
+local function IsTidy()
+    if not ns.db or not C_Container or not C_Container.GetContainerItemInfo then return true end
+    local list, locked = ReadBags()
+    if locked then return false end
+    local p = Plan(list)
+    if p == nil then return true end
+    if p == false then return false end
+    for _, q in ipairs(p) do
+        local o = list[q.index]
+        if not (o.grey and o.sig == q.sig) then return false end
+    end
+    return true
+end
+
 ns.GreySort = {
     IsBusy = function() return running end,
     Cancel = Cancel,
+    IsTidy = IsTidy,
 }
 
 -------------------------------------------------------------------------------
@@ -396,12 +470,40 @@ local function RestartAfterSort()
     ScheduleAfterSort(SORT_FALLBACK)
 end
 
+-- Shared "wait until the bag settles" helper: fn runs AFTER_SORT seconds
+-- after the last BAG_UPDATE_DELAYED, or SORT_FALLBACK seconds after the call
+-- if no update arrives at all.
+local settleWaiters = {}
+
+local function Settle(fn)
+    local w = { fn = fn, serial = 0 }
+    function w.arm(delay)
+        w.serial = w.serial + 1
+        local my = w.serial
+        C_Timer.After(delay, function()
+            if my ~= w.serial or w.done then return end
+            w.done = true
+            for i, x in ipairs(settleWaiters) do
+                if x == w then table.remove(settleWaiters, i) break end
+            end
+            fn()
+        end)
+    end
+    settleWaiters[#settleWaiters + 1] = w
+    w.arm(SORT_FALLBACK)
+end
+
+ns.Bags = {
+    Fingerprint = Fingerprint,
+    Settle      = Settle,
+}
+
 local frame = CreateFrame("Frame")
 frame:RegisterEvent("BAG_UPDATE_DELAYED")
 frame:SetScript("OnEvent", function(self, event)
-    if event == "BAG_UPDATE_DELAYED" and pendingSort then
-        ScheduleAfterSort(AFTER_SORT)
-    end
+    if event ~= "BAG_UPDATE_DELAYED" then return end
+    if pendingSort then ScheduleAfterSort(AFTER_SORT) end
+    for _, w in ipairs(settleWaiters) do w.arm(AFTER_SORT) end
 end)
 
 local hooked, hookedShow = false, false
