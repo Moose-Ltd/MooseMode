@@ -14,7 +14,7 @@
 -- Options (account-wide):
 --   oneBag             One bag: show all bags as a single window
 --   oneBagAutoCleanup  Auto cleanup when the bag opens (sub-option)
---   oneBagReverse      Cleanup fills bags from the last slot (sub-option)
+--   oneBagPack         Pack items: "top" (default) or "bottom" (sub-option)
 --
 -- Commands:
 --   /mm cleanup        sort bags now (alias: /mm sort)
@@ -95,7 +95,6 @@ local function HookCombinedBags()
         -- Never sort over a Grey Sort pass (the two would interleave), and
         -- never when the bag opened for a vendor or the bank (Auto Sell may
         -- be selling, and Blizzard's own bank sort is a different thing).
-        if ns.GreySort and ns.GreySort.IsBusy() then return end
         if MerchantFrame and MerchantFrame:IsShown() then return end
         if BankFrame and BankFrame:IsShown() then return end
         Cleanup(false)
@@ -103,9 +102,13 @@ local function HookCombinedBags()
     hookedCombined = true
 end
 
-local function ApplyReverse(enabled)
+-- Where the sort packs items. Observed live on Forever's combined bag:
+-- SetSortBagsRightToLeft(false) packs items toward the BOTTOM-right and
+-- leaves free slots at the top; SetSortBagsRightToLeft(true) packs toward
+-- the TOP-left with free slots at the bottom. So "top" means true.
+local function ApplyPack(pack)
     if C_Container and C_Container.SetSortBagsRightToLeft then
-        pcall(C_Container.SetSortBagsRightToLeft, enabled and true or false)
+        pcall(C_Container.SetSortBagsRightToLeft, pack ~= "bottom")
     end
 end
 
@@ -120,7 +123,7 @@ frame:SetScript("OnEvent", function(self, event)
         -- CVars are per character; the option is per account.
         if ns.db then
             ApplyOneBag(ns.db.oneBag and true or false, false)
-            ApplyReverse(ns.db.oneBagReverse)
+            ApplyPack(ns.db.oneBagPack)
         end
         HookCombinedBags()
     end
@@ -140,15 +143,26 @@ ns:RegisterModule({
           onChange = function(checked) ApplyOneBag(checked, true) end },
         { key = "oneBagAutoCleanup", label = "Sort bags on open", default = false, parent = "oneBag",
           tooltip = "Run the bag sort when the combined bag opens. At most once every 10 seconds, never in combat, never at a vendor or the bank." },
-        { key = "oneBagReverse", label = "Sort from the last slot", default = false, parent = "oneBag",
-          tooltip = "Pack items from the last bag slot backwards, leaving the backpack free.",
-          onChange = function(checked) ApplyReverse(checked) end },
+        { key = "oneBagPack", type = "choice", label = "Pack items", default = "top", parent = "oneBag",
+          values = { { value = "top", text = "Top" }, { value = "bottom", text = "Bottom" } },
+          tooltip = "Where the sort packs items in the combined bag. Top fills from the top-left and leaves free slots at the bottom.",
+          onChange = function(value) ApplyPack(value) end },
     },
     OnInit = function()
+        local db = ns.db
+        -- One-time migration from the old "Sort from the last slot" tick,
+        -- which (when on) produced the top-left packing.
+        if db.oneBagReverse ~= nil then
+            db.oneBagPack = db.oneBagReverse and "top" or "bottom"
+            db.oneBagReverse = nil
+        end
+        if db.oneBagPack ~= "top" and db.oneBagPack ~= "bottom" then db.oneBagPack = "top" end
+        -- Stale keys from the removed Grey Sort module.
+        db.greySortEnabled, db.greySortReport, db.oneBagLastSorted = nil, nil, nil
         -- PLAYER_LOGIN may already have fired if the addon was loaded late.
         if IsLoggedIn and IsLoggedIn() then
-            ApplyOneBag(ns.db.oneBag and true or false, false)
-            ApplyReverse(ns.db.oneBagReverse)
+            ApplyOneBag(db.oneBag and true or false, false)
+            ApplyPack(db.oneBagPack)
             HookCombinedBags()
         end
     end,

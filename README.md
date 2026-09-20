@@ -13,7 +13,7 @@
 <!-- Activates once the CurseForge listing is live. -->
 [![CurseForge](https://img.shields.io/badge/CurseForge-MooseMode-f16436?style=flat-square&logo=curseforge)](https://www.curseforge.com/wow/addons/moosemode)
 
-Sells greys, loots instantly, accepts and hands in quests, repairs, combines bags, and marks the best quest reward. Thirteen small modules behind a purple star on the minimap, each one a tick you can turn off.
+Sells greys, loots instantly, accepts and hands in quests, repairs, combines bags, and marks the best quest reward. Twelve small modules behind a purple star on the minimap, each one a tick you can turn off.
 
 <img src="docs/media/addon-settings.png" alt="The MooseMode settings dialog in game" width="640">
 
@@ -35,7 +35,7 @@ For contributors: [`CONTRIBUTING.md`](./CONTRIBUTING.md) · [`CHANGELOG.md`](./C
 - 📜 **Quests** - Accept, hand in, and take the follow-up without clicking. Low-level quests are skipped, the best reward is framed in gold, and a note at the bottom of the window explains anything left for you.
 - 🎁 **Loot** - Everything is taken the instant loot is ready. Optionally leave the greys.
 - ⚔️ **Combat** - Pet-attack macros so a pet charges when a cast starts, and bar buttons that follow you to the highest spell rank.
-- 🎒 **Interface** - One combined bag, greys sorted to the end, clean icons without macro names, wider camera zoom, and the beta Issue Reporter tucked away.
+- 🎒 **Interface** - One combined bag with a one-click sort, clean icons without macro names, wider camera zoom, and the beta Issue Reporter tucked away.
 - ⚙️ **One dialog** - Grouped sections, sub-options, switches and tooltips. `/mm` or the minimap star opens it. Hold Shift at an NPC or vendor to skip automation once.
 - 💾 **Beta-proof settings** - The beta client does not load saved variables yet, so settings are also backed up in an account macro and restored at login.
 
@@ -51,8 +51,7 @@ For contributors: [`CONTRIBUTING.md`](./CONTRIBUTING.md) · [`CHANGELOG.md`](./C
 | Fast Loot     | Loot      | Takes every slot the instant loot is ready. Sub-option: leave grey items. Takes over the game's auto-loot setting while on. | on |
 | Pet Attack    | Combat    | Creates one macro per damage spell with `/petattack` in front. Sub-option: only on pet classes.             | off     |
 | Spell Ranks   | Combat    | Swaps bar buttons holding an old rank for the highest one you know. Sub-option: report swaps in chat.       | on      |
-| One Bag       | Interface | Blizzard's combined bag window. Sub-options: sort on open, sort from the last slot.                         | on      |
-| Grey Sort     | Interface | After a cleanup, greys are grouped beside the free slots, cheapest first. Sub-option: report moves in chat.  | on      |
+| One Bag       | Interface | Blizzard's combined bag window. Sub-options: sort on open, pack items top or bottom.                         | on      |
 | Action Bars   | Interface | Hides macro names under action bar icons.                                                                   | on      |
 | Graphics      | Interface | Max camera zoom distance (on) and a vivid-colours contrast tick (off).                                       | mixed   |
 | Beta Client   | Interface | Hides the beta Issue Reporter button.                                                                       | on      |
@@ -63,7 +62,7 @@ For contributors: [`CONTRIBUTING.md`](./CONTRIBUTING.md) · [`CHANGELOG.md`](./C
 flowchart TD
   Game(["Game events<br/>MERCHANT_SHOW · LOOT_READY · QUEST_* · GOSSIP_SHOW · PLAYER_LOGIN"]) --> Modules
   Core["Core.lua<br/>module registry · MooseModeDB + MMcfg macro backup<br/>options dialog · minimap button · /mm /moose"]
-  Modules["Modules/*.lua<br/>13 feature modules"] -->|"ns:RegisterModule()"| Core
+  Modules["Modules/*.lua<br/>12 feature modules"] -->|"ns:RegisterModule()"| Core
   Core -->|"ns.db · ns.Print · ns.CVar · ns.SaveSettings"| Modules
   Modules --> API["C_* APIs<br/>C_Container · C_MerchantFrame · C_GossipInfo · C_QuestLog · C_Item · C_CVar"]
   Core --> SV[("SavedVariables<br/>MooseModeDB")]
@@ -99,7 +98,6 @@ flowchart TD
 | `/mm now`                 | Sell greys at the vendor that is open                               |
 | `/mm repair`              | Repair at the vendor that is open                                   |
 | `/mm cleanup`, `/mm sort` | Run the game's bag sort                                             |
-| `/mm greysort`            | Group greys beside the free slots, cheapest first                   |
 | `/mm ranks`               | Swap bar buttons to the highest known spell rank now                |
 | `/mm petmacros`           | Regenerate the pet-attack macros                                    |
 | `/mm petmacro <spell>`    | Make or refresh one pet-attack macro                                |
@@ -169,7 +167,6 @@ MooseMode/
 │       ├── PetAttack.lua     # Combat: /petattack macros per damage spell
 │       ├── SpellRanks.lua    # Combat: bar buttons follow the highest known rank
 │       ├── OneBag.lua        # Interface: combined bag window + sort options
-│       ├── GreySort.lua      # Interface: greys beside the free slots, cheapest first
 │       ├── ActionBars.lua    # Interface: hide macro names on bars
 │       ├── Graphics.lua      # Interface: max camera zoom, vivid colours
 │       └── BetaTweaks.lua    # Interface: hide the beta Issue Reporter

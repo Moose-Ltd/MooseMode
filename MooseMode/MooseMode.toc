@@ -23,6 +23,5 @@ Modules\QuestRewards.lua
 Modules\QuestLists.lua
 Modules\AutoRepair.lua
 Modules\OneBag.lua
-Modules\GreySort.lua
 Modules\Graphics.lua
 Modules\BetaTweaks.lua

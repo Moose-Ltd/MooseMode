@@ -2,8 +2,8 @@
 
 ## Unreleased
 
-- Grey Sort: a new sort while a pass is running cancels the pass and restarts it once the bag settles; the plan is made once per pass and each swap is confirmed by re-reading only the two slots involved, so Blizzard's sort and Grey Sort no longer interleave into a different order every time the bag opens. If the bag layout contradicts the sort direction the pass is skipped with a one-time note.
-- One Bag: sort-on-open waits for a running Grey Sort pass, never fires at a vendor or the bank, and runs at most once every 10 seconds.
+- Grey Sort removed: two sorters kept undoing each other. One Bag now runs the game's sort only, and "Pack items: Top / Bottom" replaces "Sort from the last slot" (Top packs from the top-left, which is the direction the old tick actually produced when on).
+- One Bag: sort-on-open never fires at a vendor or the bank, and runs at most once every 10 seconds.
 
 ## 1.2.0-forever
 
