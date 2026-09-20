@@ -369,8 +369,7 @@ local function SvReadMacros()
         if not idx then return nil end
         local okB, body = pcall(GetMacroBody, idx)
         if not okB or type(body) ~= "string" then return nil end
-        local nl = body:find("
-", 1, true)
+        local nl = body:find("\n", 1, true)
         local piece = nl and body:sub(nl + 1) or ""
         if n < count and #piece < SV_CHUNK_MAX then return nil end
         pieces[n] = piece
