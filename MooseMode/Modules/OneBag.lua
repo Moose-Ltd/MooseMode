@@ -67,10 +67,10 @@ local function ApplyOneBag(enabled, announce)
     local current = ns.CVar.Get(CVAR)
     if current ~= want then
         ns.CVar.Set(CVAR, want)
+        -- Closing and re-opening the bags is enough for the client to re-lay
+        -- them out in the new mode; no reload needed.
         RelayoutBags()
-        -- The client only rebuilds its bag frames for the new mode on a UI
-        -- reload; closing them above avoids a half-switched window meanwhile.
-        if announce then ns.Print("One Bag: the bag layout changes after /reload.") end
+        if announce then ns.Print(enabled and "One Bag on." or "One Bag off.") end
     end
 end
 
@@ -189,7 +189,7 @@ ns:RegisterModule({
     reinitSafe = true,   -- OnInit only applies state from ns.db; safe to run again after a late restore
     options = {
         { key = "oneBag", label = "Combine bags into one window", default = true,
-          tooltip = "Use the client's own combined-bag mode, so clicking, dragging and selling items all keep working. Applied to every character you log in with. The bag layout changes after /reload.",
+          tooltip = "Use the client's own combined-bag mode, so clicking, dragging and selling items all keep working. Applied to every character you log in with.",
           onChange = function(checked) ApplyOneBag(checked, true) end },
         { key = "oneBagAutoCleanup", label = "Sort bags on open", default = false, parent = "oneBag",
           tooltip = "Run the bag sort when the combined bag opens. Items pack from the top. At most once every 10 seconds, never in combat, never at a vendor or the bank." },

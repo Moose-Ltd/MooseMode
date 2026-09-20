@@ -2,11 +2,9 @@
 
 ## Unreleased
 
-- One Bag: the tick is now a plain switch (ticked = combined, unticked = separate bags). It used to restore the character's earlier value on untick, which did nothing for a character that already had combined bags on.
-- One Bag: unticking now takes effect (the game setting is re-applied after the settings restore) and the dialog says a reload is needed for the layout to change. Fast Loot and Graphics re-apply the same way.
-- One Bag: the sort always packs from the top of the combined bag (the right-to-left sort, the direction that leaves no stray items on Forever); bags flagged "ignore when sorting" are un-flagged so the sort covers every bag.
-- Grey Sort removed, and the "Sort from the last slot" tick with it: two sorters kept undoing each other. One Bag now runs the game's sort only.
-- One Bag: sort-on-open never fires at a vendor or the bank, and runs at most once every 10 seconds.
+- One Bag: the tick simply turns combined bags on or off, and takes effect straight away.
+- One Bag: the sort always packs from the top and covers every bag. Sort-on-open stays away from vendors and the bank and runs at most once every 10 seconds.
+- Grey Sort removed. Two sorters kept undoing each other, so the game's sort runs alone.
 
 ## 1.2.0-forever
 
