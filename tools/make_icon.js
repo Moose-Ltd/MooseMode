@@ -371,11 +371,49 @@ function contextPreview(rgba) {
 
 // ---------------------------------------------------------------------------
 
-const img = render();
-const rgba = toBytes(img, SIZE, SIZE);
-writeTGA(OUT_TGA, rgba, SIZE, SIZE);
-writePNG(OUT_PNG, rgba, SIZE, SIZE);
-writePNG(OUT_CTX, contextPreview(rgba), 256, 256);
-console.log("wrote", OUT_TGA);
-console.log("wrote", OUT_PNG);
-console.log("wrote", OUT_CTX);
+// Render the same artwork at any pixel size: geometry stays in 128-space and
+// each output pixel samples the matching point, so a 512px avatar is the icon
+// itself, not an upscale.
+function renderAt(out) {
+    const img = new Float32Array(out * out * 4);
+    const inv = 1 / (SS * SS);
+    const k = SIZE / out;
+    for (let y = 0; y < out; y++) {
+        for (let x = 0; x < out; x++) {
+            let r = 0, g = 0, b = 0, a = 0;
+            for (let sy = 0; sy < SS; sy++) {
+                for (let sx = 0; sx < SS; sx++) {
+                    const s = sample((x + (sx + 0.5) / SS) * k, (y + (sy + 0.5) / SS) * k);
+                    r += s[0] * s[3]; g += s[1] * s[3]; b += s[2] * s[3]; a += s[3];
+                }
+            }
+            const i = (y * out + x) * 4;
+            if (a > 0) {
+                img[i] = r / a; img[i + 1] = g / a; img[i + 2] = b / a; img[i + 3] = a * inv;
+            }
+        }
+    }
+    return img;
+}
+
+// Usage: node tools/make_icon.js                 -> icon.tga + previews
+//        node tools/make_icon.js --png FILE --size N   -> one PNG at N px (avatars, CurseForge)
+const argv = process.argv.slice(2);
+const pngArg = argv.indexOf("--png");
+if (pngArg >= 0) {
+    const file = argv[pngArg + 1];
+    const sizeArg = argv.indexOf("--size");
+    const out = sizeArg >= 0 ? parseInt(argv[sizeArg + 1], 10) : 512;
+    if (!file || !(out > 0)) { console.error("usage: --png FILE [--size N]"); process.exit(2); }
+    writePNG(file, toBytes(renderAt(out), out, out), out, out);
+    console.log("wrote", file, out + "x" + out);
+} else {
+    const img = render();
+    const rgba = toBytes(img, SIZE, SIZE);
+    writeTGA(OUT_TGA, rgba, SIZE, SIZE);
+    writePNG(OUT_PNG, rgba, SIZE, SIZE);
+    writePNG(OUT_CTX, contextPreview(rgba), 256, 256);
+    console.log("wrote", OUT_TGA);
+    console.log("wrote", OUT_PNG);
+    console.log("wrote", OUT_CTX);
+}
