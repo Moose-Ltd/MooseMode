@@ -2,6 +2,7 @@
 ## Title: |cffb04cffMooseMode|r
 ## Notes: A growing bag of quality-of-life tools for WoW: Forever. Auto-sell junk, fast loot, and more to come.
 ## Author: Moose
+## X-License: All Rights Reserved. See LICENSE.md
 ## Version: 1.1.0-forever
 ## IconTexture: Interface\AddOns\MooseMode\media\icon.tga
 ## SavedVariables: MooseModeDB

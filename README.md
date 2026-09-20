@@ -161,3 +161,7 @@ Leave those macros alone. They are rewritten automatically a couple of seconds a
 Forever (interface `16001`) runs the Retail 12.x UI code, not the Classic Era code. The old Classic globals such as `GetItemInfo` and `GetContainerItemInfo` do not exist, so the addon only uses the modern `C_Container`, `C_Item`, `C_CurrencyInfo`, `C_CVar` and `C_Timer` namespaces. The TOC also lists `120105`, so the same files load on Retail.
 
 Item quality and sell price are not secret values on this client, but every read is guarded anyway so the addon fails quietly rather than throwing if that ever changes.
+
+## Licence
+
+Copyright © 2026 Moose Ltd. All rights reserved. You may install and use MooseMode freely and read or modify your own copy, but not redistribute or republish it. See [LICENSE.md](LICENSE.md) for the full terms.
