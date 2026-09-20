@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Grey Sort: a new sort while a pass is running cancels the pass and restarts it once the bag settles; the plan is made once per pass and each swap is confirmed by re-reading only the two slots involved, so Blizzard's sort and Grey Sort no longer interleave into a different order every time the bag opens. If the bag layout contradicts the sort direction the pass is skipped with a one-time note.
+- One Bag: sort-on-open waits for a running Grey Sort pass, never fires at a vendor or the bank, and runs at most once every 10 seconds.
+
 ## 1.2.0-forever
 
 - Settings survive reloads and restarts on the beta: the backup is written to a registered console variable (restored on reload) and to account macros (restored on a cold start). A partial backup is never applied and unread backup slices are never deleted.

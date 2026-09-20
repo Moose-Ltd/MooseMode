@@ -23,7 +23,7 @@
 local ADDON, ns = ...
 
 local CVAR = "combinedBags"
-local CLEANUP_DEBOUNCE = 2   -- seconds between automatic sorts
+local CLEANUP_DEBOUNCE = 10  -- seconds between automatic sorts
 
 local function AnyBagOpen()
     if IsAnyBagOpen then
@@ -91,9 +91,14 @@ local function HookCombinedBags()
     if hookedCombined then return end
     if not ContainerFrameCombinedBags or not ContainerFrameCombinedBags.HookScript then return end
     ContainerFrameCombinedBags:HookScript("OnShow", function()
-        if ns.db and ns.db.oneBag and ns.db.oneBagAutoCleanup then
-            Cleanup(false)
-        end
+        if not (ns.db and ns.db.oneBag and ns.db.oneBagAutoCleanup) then return end
+        -- Never sort over a Grey Sort pass (the two would interleave), and
+        -- never when the bag opened for a vendor or the bank (Auto Sell may
+        -- be selling, and Blizzard's own bank sort is a different thing).
+        if ns.GreySort and ns.GreySort.IsBusy() then return end
+        if MerchantFrame and MerchantFrame:IsShown() then return end
+        if BankFrame and BankFrame:IsShown() then return end
+        Cleanup(false)
     end)
     hookedCombined = true
 end
@@ -134,7 +139,7 @@ ns:RegisterModule({
           tooltip = "Use the client's own combined-bag mode, so clicking, dragging and selling items all keep working. Applied to every character you log in with.",
           onChange = function(checked) ApplyOneBag(checked, true) end },
         { key = "oneBagAutoCleanup", label = "Sort bags on open", default = false, parent = "oneBag",
-          tooltip = "Run the bag sort each time the combined bag opens. At most once every 2 seconds, never in combat." },
+          tooltip = "Run the bag sort when the combined bag opens. At most once every 10 seconds, never in combat, never at a vendor or the bank." },
         { key = "oneBagReverse", label = "Sort from the last slot", default = false, parent = "oneBag",
           tooltip = "Pack items from the last bag slot backwards, leaving the backpack free.",
           onChange = function(checked) ApplyReverse(checked) end },
