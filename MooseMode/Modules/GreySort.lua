@@ -51,13 +51,6 @@ local SORT_FALLBACK = 1.5    -- run anyway if no bag update follows a sort
 -- Bag reading
 -------------------------------------------------------------------------------
 
-local function NumBags()
-    if Constants and Constants.InventoryConstants and Constants.InventoryConstants.NumBagSlots then
-        return Constants.InventoryConstants.NumBagSlots
-    end
-    return NUM_BAG_SLOTS or 4
-end
-
 local function SellPrice(link)
     if not link or not C_Item or not C_Item.GetItemInfo then return 0 end
     local ok, _, _, _, _, _, _, _, _, _, _, price = pcall(C_Item.GetItemInfo, link)
@@ -70,8 +63,15 @@ end
 -- Returns the list and true if any slot is locked (mid-move).
 local function ReadBags()
     local list, locked = {}, false
-    for bag = 0, NumBags() do
+    for bag = 0, ns.NumBags() do
         local slots = C_Container.GetContainerNumSlots(bag) or 0
+        -- Special containers (quiver, ammo pouch, soul bag, profession bags)
+        -- cannot hold greys, so they are neither sources nor targets and take
+        -- no part in the display order used for planning.
+        if slots > 0 and C_Container.GetContainerNumFreeSlots then
+            local ok, _, family = pcall(C_Container.GetContainerNumFreeSlots, bag)
+            if ok and type(family) == "number" and family ~= 0 then slots = 0 end
+        end
         for slot = slots, 1, -1 do
             local entry = { bag = bag, slot = slot }
             local info = C_Container.GetContainerItemInfo(bag, slot)
@@ -159,6 +159,9 @@ local running   = false
 local steps     = 0
 local moved     = 0
 local lockWaits = 0
+local lastMove  = nil   -- { bag, slot, itemID } of the last swap's source
+local noops     = 0     -- consecutive swaps the client refused
+local MAX_NOOPS = 3
 
 local function Blocked(force)
     if InCombatLockdown() then
@@ -185,7 +188,7 @@ local function Finish()
     if moved > 0 and ns.db and ns.db.greySortReport then
         ns.Print(("Grey Sort: moved %d item%s."):format(moved, moved == 1 and "" or "s"))
     end
-    steps, moved, lockWaits = 0, 0, 0
+    steps, moved, lockWaits, lastMove, noops = 0, 0, 0, nil, 0
 end
 
 local Step
@@ -209,6 +212,27 @@ Step = function()
     end
     lockWaits = 0
 
+    -- A swap only counts once the re-scan shows the source slot changed. If
+    -- the client refused it (wrong container type, for instance) the same
+    -- plan would repeat forever, so give up after a few refusals in a row.
+    if lastMove then
+        local unchanged = false
+        for _, e in ipairs(list) do
+            if e.bag == lastMove.bag and e.slot == lastMove.slot then
+                unchanged = (e.info and e.info.itemID) == lastMove.itemID
+                break
+            end
+        end
+        lastMove = nil
+        if unchanged then
+            moved = moved - 1
+            noops = noops + 1
+            if noops >= MAX_NOOPS then Finish() return end
+        else
+            noops = 0
+        end
+    end
+
     local plan = Plan(list)
     if not plan then Finish() return end
 
@@ -228,6 +252,7 @@ Step = function()
             end
             if not src then Finish() return end
 
+            lastMove = { bag = src.bag, slot = src.slot, itemID = src.info.itemID }
             C_Container.PickupContainerItem(src.bag, src.slot)
             C_Container.PickupContainerItem(occupant.bag, occupant.slot)
             if GetCursorInfo and GetCursorInfo() then ClearCursor() end
@@ -250,7 +275,7 @@ local function Run(force)
     end
     if Blocked(force) then return end
     running = true
-    steps, moved, lockWaits = 0, 0, 0
+    steps, moved, lockWaits, lastMove, noops = 0, 0, 0, nil, 0
     Step()
 end
 
