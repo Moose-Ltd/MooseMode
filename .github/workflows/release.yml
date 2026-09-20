@@ -1,0 +1,72 @@
+name: Release
+
+# Pushing a tag like v1.2.0-forever runs the CI checks against that ref,
+# confirms the tag matches ## Version in the TOC, builds
+# MooseMode-<version>.zip with the MooseMode folder at the top level (the
+# layout CurseForge and the game expect), and attaches it to a GitHub
+# Release. The CurseForge upload itself stays a manual step.
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  release:
+    name: Build and publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install luaparse
+        run: npm i -g luaparse@0.3.1
+
+      - name: Lua 5.1 syntax
+        run: |
+          node -e '
+            const luaparse = require(require("path").join(require("child_process").execSync("npm root -g").toString().trim(), "luaparse"));
+            const fs = require("fs"), path = require("path");
+            const files = [];
+            (function walk(d) { for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+              const p = path.join(d, e.name);
+              if (e.isDirectory()) walk(p); else if (p.endsWith(".lua")) files.push(p); } })("MooseMode");
+            let failed = 0;
+            for (const f of files) {
+              try { luaparse.parse(fs.readFileSync(f, "utf8"), { luaVersion: "5.1" }); }
+              catch (e) { failed++; console.log("FAIL", f, "-", e.message); }
+            }
+            if (!files.length || failed) process.exit(1);
+            console.log("parsed", files.length, "files");
+          '
+
+      - name: Version matches tag
+        id: version
+        run: |
+          version=$(sed -n 's/^## Version:[[:space:]]*//p' MooseMode/MooseMode.toc | tr -d '\r' | head -1)
+          tag="${GITHUB_REF_NAME#v}"
+          echo "toc=$version tag=$tag"
+          test "$version" = "$tag" || { echo "TOC version ($version) does not match tag ($tag)"; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Build zip
+        run: |
+          version="${{ steps.version.outputs.version }}"
+          stage=$(mktemp -d)
+          cp -r MooseMode "$stage/MooseMode"
+          find "$stage/MooseMode" -name '*.bak' -delete
+          mkdir -p dist
+          (cd "$stage" && zip -r -X "$GITHUB_WORKSPACE/dist/MooseMode-$version.zip" MooseMode)
+          unzip -l "dist/MooseMode-$version.zip"
+
+      - name: GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/MooseMode-*.zip
+          generate_release_notes: true
