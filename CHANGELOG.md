@@ -1,8 +1,17 @@
 # Changelog
 
-## Unreleased
+## 1.2.0-forever
 
-Fixes from the pre-release code review.
+- Settings survive reloads and restarts on the beta: the backup is written to a registered console variable (restored on reload) and to account macros (restored on a cold start). A partial backup is never applied and unread backup slices are never deleted.
+- Option actions run after the setting is saved, so a failing action cannot lose the click.
+- Quest Lists no longer recolours Blizzard quest text. A "Skipped" line at the bottom of NPC windows names what Auto Quest left and why.
+- Auto Quest classifies difficulty from level difference, matching the quest log; a quest exactly at the grey cutoff counts as green.
+- Auto Sell is the game's sell-all only; keep and junk lists removed.
+- Ultra graphics preset removed; max camera zoom and vivid colours remain.
+- Custom minimap icon; grouped settings dialog with segmented switches, button rows and explainer notes; `/moose` alias.
+- Grey Sort, Pet Attack, Spell Ranks, Quest Rewards, Quest Lists and Action Bars modules added since 1.1.0.
+
+Fixes from the pre-release code review:
 
 - Settings backup: the macro backup is never overwritten with defaults before a restore has been attempted with the macro list loaded; restores retry on UPDATE_MACROS, login and entering the world, and a change made before the restore is merged rather than lost. False option defaults are no longer written on every save.
 - Fast Loot, One Bag, Graphics: the character's previous CVar value is remembered exactly when an option is enabled, so disabling it restores what the character had instead of a hardcoded default.
