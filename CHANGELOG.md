@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.2.1-forever
 
 - One Bag: the tick simply turns combined bags on or off, and takes effect straight away.
 - One Bag: the sort always packs from the top and covers every bag. Sort-on-open stays away from vendors and the bank and runs at most once every 10 seconds.
