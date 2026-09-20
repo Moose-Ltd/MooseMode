@@ -46,6 +46,7 @@ local GOLD_R, GOLD_G, GOLD_B = 1, 0.82, 0
 
 local frame = CreateFrame("Frame")
 local pendingItems = {}     -- [itemID] = true while waiting for item data
+local failedItems = {}      -- [itemID] = true when the server refused the data
 local rerunQueued = false
 local logUpdateQueued = false
 local hooked = {}           -- which triggers are installed
@@ -118,7 +119,7 @@ local function SellPrice(link)
     if ns.IsSecret(sellPrice) then return nil end
     if sellPrice == nil then
         local itemID = ns.ItemIDFrom(link)
-        if itemID and C_Item.RequestLoadItemDataByID then
+        if itemID and not failedItems[itemID] and C_Item.RequestLoadItemDataByID then
             pendingItems[itemID] = true
             C_Item.RequestLoadItemDataByID(itemID)
         end
@@ -484,10 +485,11 @@ frame:RegisterEvent("QUEST_COMPLETE")
 frame:RegisterEvent("QUEST_ITEM_UPDATE")
 frame:RegisterEvent("QUEST_LOG_UPDATE")
 
-frame:SetScript("OnEvent", function(self, event, arg1)
+frame:SetScript("OnEvent", function(self, event, arg1, arg2)
     if event == "ADDON_LOADED" or event == "PLAYER_LOGIN" then
         InstallHooks()
     elseif event == "QUEST_COMPLETE" then
+        wipe(failedItems)
         ScheduleDelayed("QUEST_COMPLETE")
     elseif event == "QUEST_ITEM_UPDATE" then
         ScheduleRerun("QUEST_ITEM_UPDATE")
@@ -503,6 +505,10 @@ frame:SetScript("OnEvent", function(self, event, arg1)
         if ns.IsSecret(arg1) then return end
         if arg1 and pendingItems[arg1] then
             pendingItems[arg1] = nil
+            -- The second argument is false when the server refused the
+            -- item; asking again would only loop, so that item shows no
+            -- value for this reward window.
+            if arg2 == false then failedItems[arg1] = true end
             ScheduleRerun("item data")
         end
     end
