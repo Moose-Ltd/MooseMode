@@ -819,14 +819,20 @@ local function Checkbox_Refresh(cb)
     Control_UpdateEnabled(cb)
 end
 
+-- Save first, then run the option action under pcall: an error inside a
+-- module action must never stop the setting itself from being persisted.
+local function RunOnChange(opt, value)
+    if not opt.onChange then return end
+    local ok, err = pcall(opt.onChange, value, opt)
+    if not ok then ns.Print("error applying \"" .. tostring(opt.label) .. "\": " .. tostring(err)) end
+end
+
 local function Checkbox_OnClick(self)
     local checked = self:GetChecked() and true or false
     ns.db[self.option.key] = checked
-    if self.option.onChange then
-        self.option.onChange(checked, self.option)
-    end
-    Controls_UpdateEnabled()
     ns.SaveSettings()
+    RunOnChange(self.option, checked)
+    Controls_UpdateEnabled()
 end
 
 -- Options in display order: each top-level option followed by its children
@@ -1001,10 +1007,9 @@ local function Choice_Select(seg, value)
     if not seg.enabled then return end
     if ns.db[seg.option.key] == value then Choice_Update(seg) return end
     ns.db[seg.option.key] = value
+    ns.SaveSettings()
     Choice_Update(seg)
-    if seg.option.onChange then
-        seg.option.onChange(value, seg.option)
-    end
+    RunOnChange(seg.option, value)
     Controls_UpdateEnabled()
     ns.SaveSettings()
 end
