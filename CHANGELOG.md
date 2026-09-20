@@ -11,7 +11,7 @@ First public release for World of Warcraft: Forever (interface 16001).
 ### Quests
 - Auto Quest: accepts quests from quest windows, greeting lists and gossip menus, hands in completed quests, picks up follow-ups, and picks the only gossip option when there is nothing else to choose. Low-level quests are skipped by default, with a grey-only or green-and-grey threshold. A debug log to chat explains each decision.
 - Quest Rewards: each reward choice shows its vendor value, and the most valuable choice is framed in gold with a pulse while the others are dimmed.
-- Quest Lists: quest lines in NPC dialogs show their level and difficulty colour, completed hand-ins are marked, and anything Auto Quest left for you carries a "skipped" reason, including on the single-quest window.
+- Quest Lists: a line at the bottom of NPC quest windows names anything Auto Quest left for you and why, including on the single-quest window.
 
 ### Loot
 - Fast Loot: takes everything the instant loot is ready. Optional "leave grey items". Takes over the game's auto-loot setting while enabled.
