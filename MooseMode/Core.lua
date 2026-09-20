@@ -211,6 +211,34 @@ local svPending, svScheduled, svWarned, svRestored = false, false, false, false
 local svDirty, svMacrosReady, svAbsentConfirmed = false, false, false
 local svHadKeysAtLoad = false
 
+-- Second backup channel: a registered CVar. On this client a registered CVar
+-- survives /reload (but not a restart) and is readable at ADDON_LOADED, while
+-- account macros are server-synced and a reload can hand back a stale copy.
+-- Reload restores from the CVar; a cold start falls back to the macros.
+local SV_CVAR = "MooseModeCfg"
+local svCvarReady = false
+
+local function SvCvarInit()
+    if svCvarReady then return true end
+    if not (C_CVar and C_CVar.RegisterCVar) then return false end
+    local ok = pcall(C_CVar.RegisterCVar, SV_CVAR, "")
+    svCvarReady = ok and true or false
+    return svCvarReady
+end
+
+local function SvCvarRead()
+    if not SvCvarInit() then return nil end
+    local ok, v = pcall(C_CVar.GetCVar, SV_CVAR)
+    if not ok or type(v) ~= "string" or v == "" then return nil end
+    return v
+end
+
+local function SvCvarWrite(payload)
+    if not SvCvarInit() then return false end
+    local ok = pcall(C_CVar.SetCVar, SV_CVAR, payload or "")
+    return ok and true or false
+end
+
 local function OptionByKey(key)
     for _, mod in ipairs(ns.modules) do
         for _, opt in ipairs(mod.options) do
@@ -379,8 +407,9 @@ local function SvReadMacros()
 end
 
 local function SvWriteMacros()
-    if not SvMacrosAvailable() then return false end
     local payload = SvSerialize()
+    SvCvarWrite(payload)
+    if not SvMacrosAvailable() then return false end
     local chunks = {}
     for i = 1, #payload, SV_CHUNK_MAX do
         chunks[#chunks + 1] = payload:sub(i, i + SV_CHUNK_MAX - 1)
@@ -523,7 +552,14 @@ loader:SetScript("OnEvent", function(self, event, name)
         if next(ns.db) == nil then
             -- Nothing loaded: either a fresh install or the client bug.
             -- The macro API may not answer this early; later events retry.
-            SvTryRestore(ns.db, false)
+            local cv = SvCvarRead()
+            if cv then
+                local n = SvApply(ns.db, cv, false)
+                svRestored = true
+                ns.Print(("settings restored after reload, %d value%s."):format(n, n == 1 and "" or "s"))
+            else
+                SvTryRestore(ns.db, false)
+            end
         else
             -- The client loaded the saved table; the backup is a mirror only.
             svRestored = true
