@@ -209,6 +209,7 @@ local SV_DEBOUNCE     = 2
 
 local svPending, svScheduled, svWarned, svRestored = false, false, false, false
 local svDirty, svMacrosReady, svAbsentConfirmed = false, false, false
+local svHadKeysAtLoad = false
 
 local function OptionByKey(key)
     for _, mod in ipairs(ns.modules) do
@@ -483,6 +484,7 @@ loader:SetScript("OnEvent", function(self, event, name)
 
         MooseModeDB = MooseModeDB or {}
         ns.db = MooseModeDB
+        svHadKeysAtLoad = next(ns.db) ~= nil
         if next(ns.db) == nil then
             -- Nothing loaded: either a fresh install or the client bug.
             -- The macro API may not answer this early; later events retry.
@@ -511,13 +513,24 @@ loader:SetScript("OnEvent", function(self, event, name)
     elseif event == "PLAYER_ENTERING_WORLD" then
         if not ns.db then return end
         SvLateRestore()
-        -- The macro list has certainly loaded a few seconds into the world;
-        -- a missing MMcfg1 by then means there is no backup to protect.
+        -- Retry for a while after entering the world. The macro list is only
+        -- treated as loaded once GetNumMacros reports any macro at all (or
+        -- UPDATE_MACROS fired); only then can a missing MMcfg1 mean "no
+        -- backup". After the last try, give up and allow writes.
         if not svRestored and not svAbsentConfirmed and C_Timer and C_Timer.After then
-            C_Timer.After(5, function()
-                svMacrosReady = true
+            local tries = 0
+            local function retry()
+                if svRestored or svAbsentConfirmed then return end
+                tries = tries + 1
+                local okN, account, perChar = pcall(GetNumMacros)
+                if okN and ((tonumber(account) or 0) + (tonumber(perChar) or 0)) > 0 then
+                    svMacrosReady = true
+                end
+                if tries >= 12 then svMacrosReady = true end
                 SvLateRestore()
-            end)
+                if not svRestored and not svAbsentConfirmed then C_Timer.After(5, retry) end
+            end
+            C_Timer.After(5, retry)
         end
 
     elseif event == "PLAYER_LOGOUT" then
@@ -1501,6 +1514,20 @@ SlashCmdList.MOOSEMODE = function(msg)
         return
     elseif cmd == "cfg" then
         ns.Print("MooseMode settings backup macro. Leave the MMcfg macros alone; they are rewritten automatically.")
+        return
+    elseif cmd == "backup" then
+        local okI, idx = pcall(GetMacroIndexByName, SV_MACRO_PREFIX .. "1")
+        local okN, account, perChar = pcall(GetNumMacros)
+        local payload = SvReadMacros()
+        local keys = 0
+        if payload then for _ in payload:gmatch("[^;]+=") do keys = keys + 1 end end
+        ns.Print(("backup: restored=%s absent=%s macrosReady=%s dirty=%s hadKeysAtLoad=%s"):format(
+            tostring(svRestored), tostring(svAbsentConfirmed), tostring(svMacrosReady), tostring(svDirty), tostring(svHadKeysAtLoad)))
+        ns.Print(("backup: MMcfg1 index=%s, macros account=%s char=%s, payload=%s chars, %d keys"):format(
+            okI and tostring(idx) or "err", okN and tostring(account) or "err", okN and tostring(perChar) or "err",
+            payload and tostring(#payload) or "none", keys))
+        ns.Print(("backup: petAttackMacros=%s autoQuestLowThreshold=%s"):format(
+            tostring(ns.db and ns.db.petAttackMacros), tostring(ns.db and ns.db.autoQuestLowThreshold)))
         return
     end
 
