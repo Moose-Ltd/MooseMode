@@ -1,0 +1,34 @@
+# Changelog
+
+## 1.1.0-forever
+
+First public release for World of Warcraft: Forever (interface 16001).
+
+### Vendors
+- Auto Sell: every grey item is sold the moment a vendor opens, using the game's own sell-all. Optional chat summary with the gold earned.
+- Auto Repair: repairs all gear at any repair vendor, with an option to use guild funds first and a cost line in chat.
+
+### Quests
+- Auto Quest: accepts quests from quest windows, greeting lists and gossip menus, hands in completed quests, picks up follow-ups, and picks the only gossip option when there is nothing else to choose. Low-level quests are skipped by default, with a grey-only or green-and-grey threshold. A debug log to chat explains each decision.
+- Quest Rewards: each reward choice shows its vendor value, and the most valuable choice is framed in gold with a pulse while the others are dimmed.
+- Quest Lists: quest lines in NPC dialogs show their level and difficulty colour, completed hand-ins are marked, and anything Auto Quest left for you carries a "skipped" reason, including on the single-quest window.
+
+### Loot
+- Fast Loot: takes everything the instant loot is ready. Optional "leave grey items". Takes over the game's auto-loot setting while enabled.
+
+### Combat
+- Pet Attack: creates one macro per damage spell with /petattack in front, so a pet charges the moment a cast starts. Opt-in.
+- Spell Ranks: swaps action bar buttons to the highest rank you know whenever you learn a new one.
+
+### Interface
+- One Bag: the client's combined bag window, with optional sort on open and reverse fill.
+- Grey Sort: after a cleanup, greys are grouped next to the free slots, cheapest first.
+- Action Bars: hides macro names under bar icons.
+- Graphics: max camera zoom distance and a vivid-colours contrast tick.
+- Beta Client: hides the beta Issue Reporter button.
+
+### General
+- Minimap button with a custom purple icon; left-click opens the settings dialog, drag to move, `/mm icon` to nudge.
+- Settings dialog with grouped sections, sub-options, segmented switches and tooltips. Opens with `/mm`, `/moose` or `/moosemode`.
+- Settings are account-wide. Because the Forever beta client does not yet load saved variables, non-default settings are also backed up in account macros named MMcfg1 and up, and restored from there at login. Do not delete those macros.
+- Hold Shift while talking to an NPC or vendor to skip all automation once.
