@@ -58,7 +58,15 @@ local function ApplyOneBag(enabled, announce)
         end
         return
     end
-    if ns.CVar.ApplyWithSnapshot(CVAR, "1", "oneBagPrevCVar", enabled) then
+    -- A plain switch: ticked = combined, unticked = separate bags. (An earlier
+    -- version restored the character's previous value on untick, which on a
+    -- character that already had combined bags on meant unticking did
+    -- nothing.)
+    ns.db.oneBagPrevCVar = nil
+    local want = enabled and "1" or "0"
+    local current = ns.CVar.Get(CVAR)
+    if current ~= want then
+        ns.CVar.Set(CVAR, want)
         RelayoutBags()
         -- The client only rebuilds its bag frames for the new mode on a UI
         -- reload; closing them above avoids a half-switched window meanwhile.
