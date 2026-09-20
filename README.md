@@ -113,7 +113,11 @@ node tools/make_icon.js                # regenerate media/icon.tga and the PNG p
 node tools/make_icon.js --png out.png --size 512   # the icon at any size (avatars, listings)
 ```
 
-Syntax check: the addon runs on Lua 5.1, so parse every file with [luaparse](https://github.com/fstirlitz/luaparse) in `luaVersion: "5.1"` mode. [`ci.yml`](./.github/workflows/ci.yml) is the reference script and runs on every push.
+Syntax check: the addon runs on Lua 5.1, so parse every file with [luaparse](https://github.com/fstirlitz/luaparse) in `luaVersion: "5.1"` mode. [`ci.yml`](./.github/workflows/ci.yml) is the reference script and runs on every push; it also fails a pull request that changes the addon without a changelog line.
+
+### Releasing
+
+Every change adds a line under `## Unreleased` in `CHANGELOG.md`. A release is: rename that heading to the version, bump `## Version` in the TOC, commit `Version X.Y.Z-forever`, tag `vX.Y.Z-forever`, push with tags. [`release.yml`](./.github/workflows/release.yml) builds the zip, publishes the GitHub Release and uploads to CurseForge with the changelog section as the file notes. Patch releases are welcome. Setup and the variables involved are in [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ### Adding a module
 

@@ -3,8 +3,15 @@ name: Release
 # Pushing a tag like v1.2.0-forever runs the CI checks against that ref,
 # confirms the tag matches ## Version in the TOC, builds
 # MooseMode-<version>.zip with the MooseMode folder at the top level (the
-# layout CurseForge and the game expect), and attaches it to a GitHub
-# Release. The CurseForge upload itself stays a manual step.
+# layout CurseForge and the game expect), attaches it to a GitHub Release,
+# and uploads the same zip to CurseForge.
+#
+# CurseForge upload needs:
+#   - secret  CF_API_KEY        the CurseForge upload token (repo settings)
+#   - TOC     ## X-Curse-Project-ID: <id>   the project id, once the project exists
+#   - var     CF_GAME_VERSION   optional, e.g. 1.60.1; defaults to the newest Forever version
+#   - var     CF_RELEASE_TYPE   optional: alpha, beta (default) or release
+# Without the id or the token the upload step is skipped with a notice.
 
 on:
   push:
@@ -66,7 +73,92 @@ jobs:
           unzip -l "dist/MooseMode-$version.zip"
 
       - name: GitHub Release
+        id: gh_release
         uses: softprops/action-gh-release@v2
         with:
           files: dist/MooseMode-*.zip
           generate_release_notes: true
+
+      - name: Publish to CurseForge
+        env:
+          CF_API_KEY: ${{ secrets.CF_API_KEY }}
+          CF_GAME_VERSION: ${{ vars.CF_GAME_VERSION }}
+          CF_RELEASE_TYPE: ${{ vars.CF_RELEASE_TYPE }}
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          ADDON: MooseMode
+          TOC: MooseMode/MooseMode.toc
+          CF_GAME_VERSION_TYPE: "88568"   # WoW Forever
+        run: |
+          set -euo pipefail
+          project=$(sed -n 's/^## X-Curse-Project-ID:[[:space:]]*//p' "$TOC" | tr -d '\r[:space:]' | head -1)
+          if [ -z "$project" ]; then
+            echo "CurseForge upload skipped: set ## X-Curse-Project-ID in the TOC" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if [ -z "${CF_API_KEY:-}" ]; then
+            echo "CurseForge upload skipped: CF_API_KEY secret is not set" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          # Game version id: the entry under the Forever type matching CF_GAME_VERSION,
+          # or the newest one by dotted version if the variable is unset.
+          curl -sS -f -H "X-Api-Token: $CF_API_KEY" https://wow.curseforge.com/api/game/versions > "$RUNNER_TEMP/versions.json"
+          cat > "$RUNNER_TEMP/resolve.js" <<'EOF'
+          const fs = require("fs");
+          const versions = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+          const typeId = Number(process.argv[3]);
+          const want = (process.argv[4] || "").trim();
+          const num = s => String(s).split(".").map(p => parseInt(p, 10) || 0);
+          const cmp = (a, b) => { const x = num(a), y = num(b); for (let i = 0; i < Math.max(x.length, y.length); i++) { const d = (x[i] || 0) - (y[i] || 0); if (d) return d; } return 0; };
+          let list = versions.filter(v => Number(v.gameVersionTypeID) === typeId);
+          if (want) list = list.filter(v => v.name === want);
+          if (!list.length) { console.error("no CurseForge game version for type " + typeId + (want ? " named " + want : "")); process.exit(1); }
+          list.sort((a, b) => cmp(b.name, a.name));
+          console.log(list[0].id + " " + list[0].name);
+          EOF
+          read -r gv_id gv_name < <(node "$RUNNER_TEMP/resolve.js" "$RUNNER_TEMP/versions.json" "$CF_GAME_VERSION_TYPE" "${CF_GAME_VERSION:-}")
+          echo "game version: $gv_name (id $gv_id)"
+
+          # Changelog: the CHANGELOG.md section for this version, else the release notes.
+          cat > "$RUNNER_TEMP/changelog.js" <<'EOF'
+          const fs = require("fs");
+          const version = process.argv[2];
+          const text = fs.readFileSync("CHANGELOG.md", "utf8").replace(/\r\n/g, "\n");
+          const lines = text.split("\n");
+          let out = [], on = false;
+          for (const line of lines) {
+            if (/^## /.test(line)) { if (on) break; on = line.replace(/^## /, "").trim() === version; continue; }
+            if (on) out.push(line);
+          }
+          const body = out.join("\n").trim();
+          if (body) fs.writeFileSync(process.argv[3], body + "\n");
+          EOF
+          node "$RUNNER_TEMP/changelog.js" "$VERSION" "$RUNNER_TEMP/changelog.md" || true
+          if [ ! -s "$RUNNER_TEMP/changelog.md" ]; then
+            echo "no CHANGELOG.md section for $VERSION; using the GitHub release notes"
+            gh release view "$GITHUB_REF_NAME" --json body -q .body > "$RUNNER_TEMP/changelog.md" || echo "Release $VERSION" > "$RUNNER_TEMP/changelog.md"
+          fi
+
+          release_type="${CF_RELEASE_TYPE:-beta}"
+          case "$release_type" in alpha|beta|release) ;; *) echo "CF_RELEASE_TYPE must be alpha, beta or release"; exit 1 ;; esac
+
+          node -e '
+            const fs = require("fs");
+            const [changelogFile, version, gvId, releaseType, out] = process.argv.slice(1);
+            fs.writeFileSync(out, JSON.stringify({
+              changelog: fs.readFileSync(changelogFile, "utf8"),
+              changelogType: "markdown",
+              displayName: version,
+              gameVersions: [Number(gvId)],
+              releaseType
+            }));
+          ' "$RUNNER_TEMP/changelog.md" "$VERSION" "$gv_id" "$release_type" "$RUNNER_TEMP/metadata.json"
+
+          zip="dist/$ADDON-$VERSION.zip"
+          response=$(curl -sS -f -H "X-Api-Token: $CF_API_KEY" \
+            -F "metadata=<$RUNNER_TEMP/metadata.json" \
+            -F "file=@$zip" \
+            "https://wow.curseforge.com/api/projects/$project/upload-files")
+          file_id=$(node -e 'const r = JSON.parse(process.argv[1]); console.log(r.id || "")' "$response")
+          echo "CurseForge: uploaded $zip to project $project as file $file_id ($release_type, $gv_name)" | tee -a "$GITHUB_STEP_SUMMARY"
