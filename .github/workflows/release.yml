@@ -103,7 +103,7 @@ jobs:
 
           # Game version id: the entry under the Forever type matching CF_GAME_VERSION,
           # or the newest one by dotted version if the variable is unset.
-          curl -sS -f -H "X-Api-Token: $CF_API_KEY" https://wow.curseforge.com/api/game/versions > "$RUNNER_TEMP/versions.json"
+          curl -sS -f --retry 3 --retry-delay 15 --retry-all-errors -H "X-Api-Token: $CF_API_KEY" https://wow.curseforge.com/api/game/versions > "$RUNNER_TEMP/versions.json"
           cat > "$RUNNER_TEMP/resolve.js" <<'EOF'
           const fs = require("fs");
           const versions = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
