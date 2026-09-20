@@ -37,15 +37,51 @@ local pending = false   -- generator requested during combat
 -- Helpers
 -------------------------------------------------------------------------------
 
+-- Cut a string to at most maxBytes without splitting a UTF-8 character.
+local function Utf8Truncate(s, maxBytes)
+    if #s <= maxBytes then return s end
+    local cut = maxBytes
+    while cut > 0 do
+        local b = s:byte(cut + 1)
+        if not b or b < 0x80 or b >= 0xC0 then break end   -- not a continuation byte
+        cut = cut - 1
+    end
+    return s:sub(1, cut)
+end
+
 local function MacroName(spellName)
     if #spellName > MACRO_NAME_MAX then
-        return spellName:sub(1, MACRO_NAME_MAX), true
+        return Utf8Truncate(spellName, MACRO_NAME_MAX), true
     end
     return spellName, false
 end
 
 local function MacroBody(spellName)
     return "#showtooltip\n/petattack [@target,harm,nodead]\n/cast " .. spellName
+end
+
+-- The spell a MooseMode macro body casts (its last line).
+local function CastTarget(body)
+    if type(body) ~= "string" then return nil end
+    return body:match("\n/cast%s+(.-)%s*$")
+end
+
+local function IsOurs(body)
+    return type(body) == "string" and body:sub(1, #OURS_PREFIX) == OURS_PREFIX
+end
+
+-- When two spells share the same shortened name, the second gets a shorter
+-- stem plus a digit: "Curse of Reckl 2". Returns nil if no free variant.
+local function AlternateName(spellName)
+    local stem = Utf8Truncate(spellName, MACRO_NAME_MAX - 2)
+    for d = 2, 9 do
+        local candidate = stem .. " " .. d
+        local index = GetMacroIndexByName(candidate) or 0
+        if index == 0 then return candidate end
+        local body = GetMacroBody(index)
+        if IsOurs(body) and CastTarget(body) == spellName then return candidate end
+    end
+    return nil
 end
 
 local function IsPetClass()
@@ -97,7 +133,8 @@ local function CollectHarmfulSpells()
     return names
 end
 
--- Writes one macro. Returns "created", "updated", "skipped" or "full".
+-- Writes one macro. Returns "created", "updated", "skipped", "conflict" or
+-- "full", whether the name was shortened, and true when nothing changed.
 local function WriteMacro(spellName)
     local name, truncated = MacroName(spellName)
     local body = MacroBody(spellName)
@@ -108,11 +145,22 @@ local function WriteMacro(spellName)
         if existing == body then
             return "updated", truncated, true    -- already current
         end
-        if existing:sub(1, #OURS_PREFIX) ~= OURS_PREFIX then
+        if not IsOurs(existing) then
             return "skipped", truncated
         end
-        EditMacro(index, name, MACRO_ICON, body)
-        return "updated", truncated
+        if CastTarget(existing) == spellName then
+            EditMacro(index, name, MACRO_ICON, body)
+            return "updated", truncated
+        end
+        -- Ours, but for a different spell that shortens to the same name.
+        name = AlternateName(spellName)
+        if not name then return "conflict", truncated end
+        index = GetMacroIndexByName(name) or 0
+        if index > 0 then
+            if (GetMacroBody(index) or "") == body then return "updated", truncated, true end
+            EditMacro(index, name, MACRO_ICON, body)
+            return "updated", truncated
+        end
     end
 
     local accountCount, charCount = GetNumMacros()
@@ -155,7 +203,7 @@ local function Generate(force)
     end
 
     local created, updated, unchanged, skipped, full, truncated = 0, 0, 0, 0, 0, {}
-    local skippedNames = {}
+    local skippedNames, conflictNames = {}, {}
     for _, spellName in ipairs(spells) do
         local result, wasTruncated, same = WriteMacro(spellName)
         if wasTruncated then truncated[#truncated + 1] = spellName end
@@ -165,6 +213,9 @@ local function Generate(force)
         elseif result == "skipped" then
             skipped = skipped + 1
             skippedNames[#skippedNames + 1] = spellName
+        elseif result == "conflict" then
+            skipped = skipped + 1
+            conflictNames[#conflictNames + 1] = spellName
         elseif result == "full" then full = full + 1 end
     end
 
@@ -174,6 +225,9 @@ local function Generate(force)
     ns.Print(table.concat(parts, ", ") .. ".")
     if #skippedNames > 0 then
         ns.Print("Skipped, you already have a macro with that name: " .. table.concat(skippedNames, ", "))
+    end
+    if #conflictNames > 0 then
+        ns.Print("Skipped, no free name (another spell shortens to the same 16 characters): " .. table.concat(conflictNames, ", "))
     end
     if #truncated > 0 then
         ns.Print("Name shortened to 16 characters: " .. table.concat(truncated, ", "))
@@ -202,6 +256,8 @@ local function GenerateOne(spellName)
                        or ("Updated macro %s."):format(name))
     elseif result == "skipped" then
         ns.Print(("Skipped: you already have a macro called %s that MooseMode did not make."):format(name))
+    elseif result == "conflict" then
+        ns.Print(("Skipped: another spell already uses the shortened name %s and no variant is free."):format(name))
     else
         ns.Print("No free macro slots.")
     end
