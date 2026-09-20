@@ -327,22 +327,55 @@ local function SvMacrosAvailable()
        and type(EditMacro) == "function" and type(GetMacroBody) == "function"
 end
 
--- Concatenate the payload slices of MMcfg1..N, or nil if MMcfg1 is absent.
+-- Every MMcfgN account macro, found by walking the macro list rather than
+-- asking by name (name lookups proved unreliable while the list was still
+-- filling). Returns { [n] = macroIndex }, count.
+local function SvFindSlices()
+    local found, count = {}, 0
+    local okN, account = pcall(GetNumMacros)
+    account = okN and tonumber(account) or 0
+    if type(GetMacroInfo) == "function" then
+        for idx = 1, account do
+            local okI, name = pcall(GetMacroInfo, idx)
+            if okI and type(name) == "string" then
+                local n = name:match("^" .. SV_MACRO_PREFIX .. "(%d+)$")
+                if n then found[tonumber(n)] = idx; count = count + 1 end
+            end
+        end
+    end
+    if count == 0 then
+        for n = 1, 40 do
+            local okI, idx = pcall(GetMacroIndexByName, SV_MACRO_PREFIX .. n)
+            if not okI or not idx or idx == 0 then break end
+            found[n] = idx; count = count + 1
+        end
+    end
+    return found, count
+end
+
+local svSlicesSeen = 0   -- slices in the last complete read
+
+-- Concatenate the payload slices of MMcfg1..N. Returns nil if MMcfg1 is
+-- absent, or if the set looks incomplete: slices must be contiguous and
+-- every slice but the last must be full, since the writer cuts the payload
+-- at fixed boundaries. A partial read is never applied.
 local function SvReadMacros()
     if not SvMacrosAvailable() then return nil end
-    local ok, first = pcall(GetMacroIndexByName, SV_MACRO_PREFIX .. "1")
-    if not ok or not first or first == 0 then return nil end
-    local pieces, i = {}, 1
-    while true do
-        local okI, idx = pcall(GetMacroIndexByName, SV_MACRO_PREFIX .. i)
-        if not okI or not idx or idx == 0 then break end
+    local found, count = SvFindSlices()
+    if count == 0 or not found[1] then return nil end
+    local pieces = {}
+    for n = 1, count do
+        local idx = found[n]
+        if not idx then return nil end
         local okB, body = pcall(GetMacroBody, idx)
-        if not okB or type(body) ~= "string" then break end
-        local nl = body:find("\n", 1, true)
-        pieces[#pieces + 1] = nl and body:sub(nl + 1) or ""
-        i = i + 1
-        if i > 40 then break end
+        if not okB or type(body) ~= "string" then return nil end
+        local nl = body:find("
+", 1, true)
+        local piece = nl and body:sub(nl + 1) or ""
+        if n < count and #piece < SV_CHUNK_MAX then return nil end
+        pieces[n] = piece
     end
+    svSlicesSeen = count
     return table.concat(pieces)
 end
 
@@ -377,13 +410,16 @@ local function SvWriteMacros()
             CreateMacro(name, SV_MACRO_ICON, body, false)
         end
     end
-    -- Drop slices no longer needed.
-    local j = #chunks + 1
-    while j < 40 do
-        local idx = GetMacroIndexByName(SV_MACRO_PREFIX .. j) or 0
-        if idx == 0 or not DeleteMacro then break end
-        DeleteMacro(idx)
-        j = j + 1
+    -- Drop slices no longer needed, but only ones this session has read in
+    -- full: a slice that was never read may hold values the restore missed.
+    if DeleteMacro then
+        local found, count = SvFindSlices()
+        if count <= svSlicesSeen or svDirty then
+            for n = count, #chunks + 1, -1 do
+                local idx = found[n]
+                if idx then pcall(DeleteMacro, idx) end
+            end
+        end
     end
     return true
 end
