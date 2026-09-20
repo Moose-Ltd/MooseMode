@@ -1,167 +1,199 @@
+<div align="center">
+
 # MooseMode
 
-A growing bag of quality-of-life tools for **World of Warcraft: Forever**. It covers junk selling, fast looting, quest accepting and hand-ins, repairs and a single combined bag window, and is built so new features can be dropped in as modules.
+**Quality of life for World of Warcraft: Forever, from one settings window.**
 
-## Features
+[![Version](https://img.shields.io/badge/version-1.1.0--forever-b04cff?style=flat-square)](./MooseMode/MooseMode.toc)
+[![Game](https://img.shields.io/badge/game-WoW%3A%20Forever%201.60.1-1f6feb?style=flat-square)](https://worldofwarcraft.blizzard.com)
+[![Interface](https://img.shields.io/badge/interface-16001-555?style=flat-square)](./MooseMode/MooseMode.toc)
+[![License](https://img.shields.io/badge/license-Proprietary-555?style=flat-square)](#license)
 
-- **Minimap button.** A glossy purple orb with a white sparkle on the minimap edge, drawn from the addon's own icon file. Left-click opens the options panel, drag it to move it around the minimap. If your client draws the ring slightly off, `/mm icon <dx> <dy>` nudges the icon.
-- **Options panel.** A centred dialog with every module's settings grouped under Vendors, Quests, Loot, Combat and Interface headings: tick boxes, segmented switches for either/or choices, and button rows for one-off actions. Sub-options indent under their parent and grey out while it is off. Settings are saved per account, so every character shares them.
-- **Auto Sell.** Sells every grey item the moment a vendor window opens, using the game's own sell-all-junk, and prints how many it sold and for how much. Hold **Shift** while talking to a vendor to skip selling that visit. Vendors that do not support sell-all are left alone.
-- **Fast Loot.** Grabs everything from a corpse the moment the loot is ready. Optionally leaves grey items behind; money and quest items are always taken. While it is on it takes over the game's own auto-loot setting (otherwise the client would loot every slot before the grey rule could apply) and restores it when turned off. Hold the game's auto-loot modifier key (Shift by default) when loot opens to get the normal loot window instead.
-- **Pet Attack.** Sends your pet at the target the moment you start casting a damage spell, so a Voidwalker is already running in while Corruption is still on the cast bar. Every pet command (attack, assist, stances) is protected on this client and cannot be called by an addon, so this works through macros: tick the option and MooseMode writes one macro per damage spell in your spellbook (`#showtooltip`, `/petattack`, `/cast`), and you drag those onto your bars in place of the spells. It never overwrites a macro it did not create, and turning the option off leaves the macros alone.
-- **Action Bars.** Hides the macro name text under the icon on every action bar button, so a bar of pet-attack macros looks like a bar of spells. Untick to bring the names back.
-- **Spell Ranks.** Forever has Vanilla-style spell ranks on the Retail client, so learning Demon Armor rank 3 leaves any button that holds rank 2 casting rank 2. This module swaps such buttons to the highest rank you know, out of combat, whenever you learn a spell and once at login, and reports each swap in chat. Name-based macros (`/cast Demon Armor`) already cast the top rank; this covers plain spell buttons dragged from the spellbook.
-- **Auto Quest.** Accepts quests automatically from quest givers, quest lists and gossip windows, hands in completed quests, and picks up the follow-ups that unlock. Low-level quests are skipped by default; the **Skip when** switch decides how low is low: **Grey only** (the client flags the quest trivial, or its level is at or below your grey threshold) or **Green and grey** (anything the game colours as easy, using the client's own difficulty colour). Untick **Skip low-level quests** to accept everything. The debug option logs each quest's level, your level, the grey threshold, its colour and the threshold in use so you can see why a quest was skipped. If a hand-in offers more than one reward to choose from, the window stays open so you can pick. Also picks the gossip option for you when an NPC offers exactly one and no quests. Hold **Shift** while talking to an NPC to skip all of it.
-- **Quest Rewards.** When a quest lets you choose a reward, each choice shows its vendor sell value in gold text on the button and the most valuable one gets a gold border (ties all get it). Works in the hand-in window and in the quest log and map details, since Blizzard draws them all through the same reward frame. Prices the client has not seen yet fill in a moment later.
-- **Quest Lists.** When Auto Quest deliberately leaves a quest for you, a gold line at the bottom of the NPC window says which one and why, for example "Skipped: Westfall Stew (green)". Shown on the quest greeting list, gossip menus and the single-quest Accept/Decline window. Blizzard's own quest names and colours are left untouched.
-- **Auto Repair.** Repairs all your gear as soon as a vendor that can repair opens, and prints the cost. Optionally pays from the guild bank when your rank allows it. Warns you if you cannot afford it. Hold **Shift** while talking to the vendor to skip.
-- **One Bag.** Shows every bag as a single window, Bagnon/Baganator style. It switches on the client's own combined-bag mode rather than drawing its own bag frame, so clicking to use items, dragging, shift-linking, selling to vendors and using items in combat all keep working on Blizzard's secure item buttons, and the built-in Clean Up sort keeps working too. Optional sub-options run the sort automatically each time the bag opens, or make it pack items from the last slot. The setting is per account; the client-side switch is per character, so it is re-applied at every login to match.
-- **Grey Sort.** After any bag cleanup (Blizzard's button, One Bag's sort-on-open, or `/mm cleanup`), moves every grey item into one block right beside the free slots, cheapest first, so the bag reads items, then greys, then empty space (or the mirror of that when "Sort from the last slot" is on). Moves are ordinary bag-to-bag swaps, one every fifth of a second, never in combat and never while a vendor or the bank is open. `/mm greysort` runs it on demand.
-- **Graphics.** Two ticks: one pushes the camera zoom-out past the settings slider (per character, re-applied at login), the other sets contrast to 75 for more vivid colours and puts your previous value back when unticked.
-- **Beta Client.** Hides the floating "Issue Reporter" widget (the blue beetle button) that the beta client parks on screen. Bug report and survey popups still work, and `/ptr` still opens the reporter. Does nothing on a client that has no issue reporter.
+[![CI](https://github.com/Moose-Ltd/MooseMode/actions/workflows/ci.yml/badge.svg)](https://github.com/Moose-Ltd/MooseMode/actions/workflows/ci.yml)
+<!-- Activates once the CurseForge listing is live. -->
+[![CurseForge](https://img.shields.io/badge/CurseForge-MooseMode-f16436?style=flat-square&logo=curseforge)](https://www.curseforge.com/wow/addons/moosemode)
 
-## Install
+Sells greys, loots instantly, accepts and hands in quests, repairs, combines bags, and marks the best quest reward. Thirteen small modules behind a purple star on the minimap, each one a tick you can turn off.
 
-The addon lives in the `MooseMode` folder. It needs to end up at:
+</div>
 
+---
+
+## Contents
+
+[Highlights](#highlights) · [Modules](#modules) · [Architecture](#architecture) · [Quick start](#quick-start) · [Commands](#commands) · [Development](#development) · [Beta note](#beta-note) · [Repository map](#repository-map) · [Credits](#credits) · [Support](#support) · [License](#license)
+
+For contributors: [`CONTRIBUTING.md`](./CONTRIBUTING.md) · [`CHANGELOG.md`](./CHANGELOG.md)
+
+---
+
+## Highlights
+
+- 💰 **Vendors** - Greys are sold the moment a vendor opens, gear is repaired, and chat tells you what it cost or earned.
+- 📜 **Quests** - Accept, hand in, and take the follow-up without clicking. Low-level quests are skipped, the best reward is framed in gold, and a note at the bottom of the window explains anything left for you.
+- 🎁 **Loot** - Everything is taken the instant loot is ready. Optionally leave the greys.
+- ⚔️ **Combat** - Pet-attack macros so a pet charges when a cast starts, and bar buttons that follow you to the highest spell rank.
+- 🎒 **Interface** - One combined bag, greys sorted to the end, clean icons without macro names, wider camera zoom, and the beta Issue Reporter tucked away.
+- ⚙️ **One dialog** - Grouped sections, sub-options, switches and tooltips. `/mm` or the minimap star opens it. Hold Shift at an NPC or vendor to skip automation once.
+- 💾 **Beta-proof settings** - The beta client does not load saved variables yet, so settings are also backed up in an account macro and restored at login.
+
+## Modules
+
+| Module        | Group     | What it does                                                                                                | Default |
+| ------------- | --------- | ----------------------------------------------------------------------------------------------------------- | ------- |
+| Auto Sell     | Vendors   | Sells every grey item when a vendor opens, using the game's sell-all. Optional chat summary.                | on      |
+| Auto Repair   | Vendors   | Repairs all gear at repair vendors. Sub-options: guild funds when allowed, cost in chat.                     | on      |
+| Auto Quest    | Quests    | Accepts quests, hands in completed ones, picks up follow-ups, picks the only gossip option. Skips low-level quests (grey only, or green and grey). Debug log to chat. | on |
+| Quest Rewards | Quests    | Vendor value on each reward choice; the most valuable one gets a gold frame and pulse, the rest are dimmed. | on      |
+| Quest Lists   | Quests    | A line at the bottom of NPC quest windows names what Auto Quest left for you and why.                       | on      |
+| Fast Loot     | Loot      | Takes every slot the instant loot is ready. Sub-option: leave grey items. Takes over the game's auto-loot setting while on. | on |
+| Pet Attack    | Combat    | Creates one macro per damage spell with `/petattack` in front. Sub-option: only on pet classes.             | off     |
+| Spell Ranks   | Combat    | Swaps bar buttons holding an old rank for the highest one you know. Sub-option: report swaps in chat.       | on      |
+| One Bag       | Interface | Blizzard's combined bag window. Sub-options: sort on open, sort from the last slot.                         | on      |
+| Grey Sort     | Interface | After a cleanup, greys are grouped beside the free slots, cheapest first. Sub-option: report moves in chat.  | on      |
+| Action Bars   | Interface | Hides macro names under action bar icons.                                                                   | on      |
+| Graphics      | Interface | Max camera zoom distance (on) and a vivid-colours contrast tick (off).                                       | mixed   |
+| Beta Client   | Interface | Hides the beta Issue Reporter button.                                                                       | on      |
+
+## Architecture
+
+```mermaid
+flowchart TD
+  Game(["Game events<br/>MERCHANT_SHOW · LOOT_READY · QUEST_* · GOSSIP_SHOW · PLAYER_LOGIN"]) --> Modules
+  Core["Core.lua<br/>module registry · MooseModeDB + MMcfg macro backup<br/>options dialog · minimap button · /mm /moose"]
+  Modules["Modules/*.lua<br/>13 feature modules"] -->|"ns:RegisterModule()"| Core
+  Core -->|"ns.db · ns.Print · ns.CVar · ns.SaveSettings"| Modules
+  Modules --> API["C_* APIs<br/>C_Container · C_MerchantFrame · C_GossipInfo · C_QuestLog · C_Item · C_CVar"]
+  Core --> SV[("SavedVariables<br/>MooseModeDB")]
+  Core --> Macro[("Account macros<br/>MMcfg1..N")]
+  Core --> UI["Options dialog · minimap star"]
 ```
-C:\Games\World of Warcraft\_classic_beta_\Interface\AddOns\MooseMode
-```
 
-Run `install.ps1` from this folder to link it there (a directory junction, so edits in this repo show up in-game after `/reload`). Pass `-Copy` to copy the files instead of linking, or `-Path` to point at a different WoW install.
+- **`Core.lua`** - Loads first. Owns the module registry, applies option defaults into `MooseModeDB`, and calls each module's `OnInit` once settings exist.
+- **Settings** - Account-wide. Every write goes through the dialog controls and is mirrored into `MMcfg` account macros as a backup for the beta client.
+- **Options dialog** - Built lazily from the registry: five groups balanced across two columns, section headers, checkboxes, `parent` sub-options that grey out with their parent, segmented `choice` switches, `button` rows and `note` rows.
+- **Minimap button** - A custom purple icon on the minimap ring. Left-click toggles the dialog, drag moves it, `/mm icon` nudges the icon.
+- **Slash commands** - `/mm`, `/moose` and `/moosemode` share one dispatcher; unknown words are routed to the module that registered them.
+- **Module contract** - One file, one `ns:RegisterModule({ key, label, group, options, commands, OnInit })`. Modules read `ns.db.<optionKey>` at runtime and never at load.
+- **API surface** - Forever is the Retail 12.x client, so only `C_*` namespaces are used. Every call is guarded for existence and for secret values.
 
-```powershell
-.\install.ps1
-.\install.ps1 -Copy
-.\install.ps1 -Path "D:\World of Warcraft\_classic_beta_"
-```
+## Quick start
 
-Then start the game, click **AddOns** on the character select screen and make sure MooseMode is ticked.
+1. Install:
+   - **CurseForge app** - pick the Forever flavour and search for MooseMode, or
+   - **Manual** - copy the `MooseMode` folder into `World of Warcraft\_classic_beta_\Interface\AddOns\`, or
+   - **Development** - run `.\install.ps1` to link this repo's `MooseMode` folder into the game (`-Copy` to copy instead, `-Path` for another install).
+2. Start the game and tick MooseMode on the AddOns screen.
+3. Type `/mm` or `/moose`, or click the purple star on the minimap.
 
 ## Commands
 
-`/moosemode` or `/mm`
+| Command                   | What it does                                                        |
+| ------------------------- | ------------------------------------------------------------------- |
+| `/mm`, `/moose`           | Open or close the settings dialog                                   |
+| `/mm minimap`             | Hide or show the minimap button                                     |
+| `/mm icon <dx> <dy>`      | Nudge the minimap icon inside its ring (`/mm icon reset` to centre) |
+| `/mm help`                | List every subcommand                                               |
+| `/mm now`                 | Sell greys at the vendor that is open                               |
+| `/mm repair`              | Repair at the vendor that is open                                   |
+| `/mm cleanup`, `/mm sort` | Run the game's bag sort                                             |
+| `/mm greysort`            | Group greys beside the free slots, cheapest first                   |
+| `/mm ranks`               | Swap bar buttons to the highest known spell rank now                |
+| `/mm petmacros`           | Regenerate the pet-attack macros                                    |
+| `/mm petmacro <spell>`    | Make or refresh one pet-attack macro                                |
+| `/mm questdebug`          | Toggle the Auto Quest decision log in chat                          |
+| `/mm rewarddebug`         | Toggle the Quest Rewards discovery log in chat                      |
 
-| Command | What it does |
-|---|---|
-| `/mm` | Open or close the options panel |
-| `/mm minimap` | Hide or show the minimap button |
-| `/mm icon <dx> <dy>` | Nudge the minimap icon inside its ring (`/mm icon reset` to centre it again) |
-| `/mm help` | List every subcommand |
-| `/mm now` | Sell grey items at the vendor that is currently open |
-| `/mm repair` | Repair all gear at the vendor that is currently open, whatever the option says |
-| `/mm cleanup` (or `/mm sort`) | Sort your bags now with Blizzard's cleanup |
-| `/mm greysort` | Move grey items next to the free slots now, cheapest first |
-| `/mm questdebug` | Toggle quest debug logging: every quest event, what the NPC offered and each decision, in chat |
-| `/mm petmacros` | Build or refresh the pet-attack macros now, whatever the option says |
-| `/mm petmacro <Spell Name>` | Build or refresh a single pet-attack macro for that spell, no damage-spell check |
-| `/mm ranks` | Check every spell button now and move any old rank to the highest you know, with a summary |
+## Development
 
-## Options
-
-The dialog groups sections under five headings, in this order. `↳` marks a sub-option (indented, greyed out while its parent is off); `↳↳` a sub-option's sub-option.
-
-| Group | Module | Option | Default |
-|---|---|---|---|
-| Vendors | Auto Sell | Sell grey items at vendors | on |
-| Vendors | Auto Sell | ↳ Show sale summary in chat | on |
-| Vendors | Auto Repair | Repair at vendors | on |
-| Vendors | Auto Repair | ↳ Use guild funds when allowed | off |
-| Vendors | Auto Repair | ↳ Show repair cost in chat | on |
-| Quests | Auto Quest | Accept quests | on |
-| Quests | Auto Quest | ↳ Skip low-level quests | on |
-| Quests | Auto Quest | ↳↳ Skip when: **Grey only** / Green and grey (switch) | Grey only |
-| Quests | Auto Quest | ↳ Complete quest hand-ins (reward windows with several choices stay open) | on |
-| Quests | Auto Quest | Pick the only gossip option | on |
-| Quests | Auto Quest | ↳ Debug log to chat | off |
-| Quests | Quest Rewards | Show vendor value on rewards | on |
-| Quests | Quest Rewards | ↳ Highlight the most valuable | on |
-| Quests | Quest Lists | Show why a quest was skipped | on |
-| Loot | Fast Loot | Loot everything instantly | on |
-| Loot | Fast Loot | ↳ Leave grey items | off |
-| Combat | Pet Attack | Pet-attack macros for damage spells | off |
-| Combat | Pet Attack | ↳ Only on pet classes (Hunter, Warlock) | on |
-| Combat | Spell Ranks | Keep bars on highest spell rank | on |
-| Combat | Spell Ranks | ↳ Report swaps in chat | on |
-| Interface | One Bag | Combine bags into one window | on |
-| Interface | One Bag | ↳ Sort bags on open (at most once every 2 s, never in combat) | off |
-| Interface | One Bag | ↳ Sort from the last slot | off |
-| Interface | Grey Sort | Greys at the end, cheapest first | on |
-| Interface | Grey Sort | ↳ Report moves in chat | on |
-| Interface | Action Bars | Hide macro names on bars | on |
-| Interface | Graphics | Max camera zoom distance | on |
-| Interface | Graphics | Vivid colours | off |
-| Interface | Beta Client | Hide Issue Reporter button | on |
-
-## Layout
-
+```powershell
+.\install.ps1                          # junction MooseMode/ into the beta AddOns folder; /reload in game after edits
+.\package.ps1                          # build dist/MooseMode-<version>.zip for CurseForge
+node tools/make_icon.js                # regenerate media/icon.tga and the PNG previews
+node tools/make_icon.js --png out.png --size 512   # the icon at any size (avatars, listings)
 ```
-MooseMode/
-  MooseMode.toc
-  Core.lua              module registry, saved variables, minimap button, options panel, /mm
-  Modules/
-    AutoSell.lua        vendor junk selling
-    FastLoot.lua        fast corpse looting
-    PetAttack.lua       /petattack macros for damage spells
-    ActionBars.lua      hide macro names on action bar buttons
-    SpellRanks.lua      keep spell buttons on the highest known rank
-    AutoQuest.lua       quest accepting, hand-ins and gossip automation
-    QuestRewards.lua    vendor value and best-choice highlight on quest rewards
-    QuestLists.lua      "skipped" notice at the bottom of NPC quest windows
-    AutoRepair.lua      gear repair at vendors
-    OneBag.lua          combined bag window and bag cleanup
-    GreySort.lua        greys beside the free slots, cheapest first, after a cleanup
-    Graphics.lua        camera zoom, vivid colours
-    BetaTweaks.lua      beta client fixes (hide the Issue Reporter)
-  media/
-    icon.tga            minimap icon (generated, do not hand-edit)
-tools/
-  make_icon.js          renders media/icon.tga and two PNG previews; run `node tools/make_icon.js`
-```
+
+Syntax check: the addon runs on Lua 5.1, so parse every file with [luaparse](https://github.com/fstirlitz/luaparse) in `luaVersion: "5.1"` mode. [`ci.yml`](./.github/workflows/ci.yml) is the reference script and runs on every push.
 
 ### Adding a module
 
-Create `Modules\YourThing.lua`, add it to the TOC, and register it:
+Create `Modules\YourThing.lua`, add it to the TOC after the module it belongs with, and register it:
 
 ```lua
 local ADDON, ns = ...
 
 ns:RegisterModule({
     key   = "yourThingModule",
-    label = "Your Thing",                      -- section header in the options dialog
-    group = "Interface",                       -- heading it sits under: Vendors, Quests, Loot, Combat, Interface
+    label = "Your Thing",
+    group = "Interface",                     -- Vendors, Quests, Loot, Combat, Interface
     options = {
-        { key = "yourThing", label = "Do the thing", default = true,
-          tooltip = "Shown on hover.", onChange = function(checked) end },
-        { key = "yourThingExtra", label = "Do it harder", default = false,
-          parent = "yourThing" },              -- sub-option: indented, greyed out while parent is off
-        { type = "choice", key = "yourThingMode", label = "Mode", default = "fast",
-          values = { { value = "fast", text = "Fast" }, { value = "safe", text = "Safe" } },
-          parent = "yourThing",                -- sub-options can nest; parent may itself be a sub-option
-          tooltip = "A segmented switch; ns.db.yourThingMode holds the value." },
-        { type = "button", label = "Do it once", buttonText = "Go",
-          tooltip = "One-off action, nothing saved.", onClick = function() end },
-        { type = "note", text = "Muted explainer text under the section; no control, nothing saved." },
+        { key = "yourThing", label = "Do the thing", default = true, tooltip = "Shown on hover." },
+        { key = "yourThingLoud", label = "Report in chat", default = false, parent = "yourThing" },
+        { type = "choice", key = "yourThingMode", label = "Mode", default = "a", parent = "yourThing",
+          values = { { value = "a", text = "Quiet" }, { value = "b", text = "Loud" } } },
+        { type = "button", label = "Run it now", buttonText = "Run", onClick = function() end },
+        { type = "note", text = "One line of context under the section." },
     },
-    OnInit   = function(mod) end,              -- ns.db exists here
+    OnInit   = function(mod) end,            -- ns.db exists here
     commands = { thing = function(rest) end }, -- /mm thing <rest>
 })
 ```
 
-Read settings with `ns.db.yourThing`. Helpers on `ns`: `Print`, `IsSecret`, `Coins`, `ItemIDFrom`, `ItemNameByID`.
+Read settings with `ns.db.yourThing`. Helpers on `ns`: `Print`, `IsSecret`, `Coins`, `ItemIDFrom`, `ItemNameByID`, `CVar`, `SafeRegisterEvent`, `NumBags`, `SaveSettings`.
 
-## Beta note: settings backup macros
+## Beta note
 
-The Forever beta client has a Blizzard bug: it writes addon saved variables on logout but never reads them back at launch, so every addon would start from defaults each session. Macros do survive a restart, so MooseMode also writes every setting that differs from its default into one or more account macros named `MMcfg1`, `MMcfg2`, … (one is enough for typical settings) and reads them back whenever the saved table arrives empty. You will see "settings restored from backup" in chat at login while the bug lasts.
+The Forever beta client writes addon saved variables on logout but does not read them back at launch, so every addon starts from defaults each session. MooseMode mirrors its non-default settings into account macros named `MMcfg1` and up, and restores from them at login while the client is like this. Leave those macros alone; they rewrite themselves. When Blizzard fixes loading, the real saved variables take over automatically.
 
-Leave those macros alone. They are rewritten automatically a couple of seconds after any change, and clicking one only prints a note. If the macro list is full the addon says so once in chat and settings then last only for the session.
+## Repository map
 
-## Notes on the Forever client
+```
+MooseMode/
+├── MooseMode/
+│   ├── MooseMode.toc         # Interface 16001 + 120105, load order, SavedVariables, licence and website
+│   ├── Core.lua              # Registry, settings + macro backup, options dialog, minimap button, slash commands
+│   ├── media/icon.tga        # Minimap icon (generated by tools/make_icon.js)
+│   └── Modules/
+│       ├── AutoSell.lua      # Vendors: sell greys via the game's sell-all
+│       ├── AutoRepair.lua    # Vendors: repair all, guild funds optional
+│       ├── AutoQuest.lua     # Quests: accept, hand in, follow-ups, gossip, low-level rule, debug log
+│       ├── QuestRewards.lua  # Quests: vendor value + gold highlight on reward choices
+│       ├── QuestLists.lua    # Quests: "skipped" note at the bottom of NPC quest windows
+│       ├── FastLoot.lua      # Loot: instant looting, optional leave-greys, owns the auto-loot CVar
+│       ├── PetAttack.lua     # Combat: /petattack macros per damage spell
+│       ├── SpellRanks.lua    # Combat: bar buttons follow the highest known rank
+│       ├── OneBag.lua        # Interface: combined bag window + sort options
+│       ├── GreySort.lua      # Interface: greys beside the free slots, cheapest first
+│       ├── ActionBars.lua    # Interface: hide macro names on bars
+│       ├── Graphics.lua      # Interface: max camera zoom, vivid colours
+│       └── BetaTweaks.lua    # Interface: hide the beta Issue Reporter
+├── tools/
+│   ├── make_icon.js          # Icon generator (TGA + PNG, any size)
+│   └── *.png                 # Icon previews and avatar exports
+├── .github/
+│   ├── workflows/ci.yml      # Lua 5.1 parse + TOC checks on every push and PR
+│   ├── workflows/release.yml # Builds and attaches the zip when a v* tag is pushed
+│   └── ISSUE_TEMPLATE/       # Bug report and feature request forms
+├── install.ps1               # Link or copy the addon into a WoW install
+├── package.ps1               # Build the release zip locally
+├── CHANGELOG.md              # Release notes
+├── CONTRIBUTING.md           # Setup, conventions, bug reports, shipping
+├── LICENSE                   # Proprietary terms
+└── README.md                 # You are here
+```
 
-Forever (interface `16001`) runs the Retail 12.x UI code, not the Classic Era code. The old Classic globals such as `GetItemInfo` and `GetContainerItemInfo` do not exist, so the addon only uses the modern `C_Container`, `C_Item`, `C_CurrencyInfo`, `C_CVar` and `C_Timer` namespaces. The TOC also lists `120105`, so the same files load on Retail.
+## Credits
 
-Item quality and sell price are not secret values on this client, but every read is guarded anyway so the addon fails quietly rather than throwing if that ever changes.
+- API baseline for the Forever beta captured by [forever-addon-kit](https://github.com/Thunderz96/forever-addon-kit).
 
-## Licence
+World of Warcraft and Blizzard Entertainment are trademarks of Blizzard Entertainment, Inc. MooseMode is an independent fan project and is not affiliated with or endorsed by Blizzard Entertainment.
 
-Copyright © 2026 Moose Ltd. All rights reserved. You may install and use MooseMode freely and read or modify your own copy, but not redistribute or republish it. See [LICENSE.md](LICENSE.md) for the full terms.
+## Support
+
+If MooseMode saves you a few thousand clicks, the kettle bill thanks you.
+
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-support%20MooseMode-ff5e5b?style=flat-square&logo=kofi&logoColor=white)](https://ko-fi.com/mooseza)
+
+## License
+
+Copyright © 2026 Matt Berry / Moose Ltd. All rights reserved. See [LICENSE](./LICENSE).
