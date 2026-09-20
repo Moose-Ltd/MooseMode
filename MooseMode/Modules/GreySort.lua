@@ -95,7 +95,29 @@ local function ReadBags()
     return list, locked
 end
 
--- True when Blizzard's sort leaves free slots at the start of the display.
+-- Read a single slot into the same entry shape ReadBags produces.
+local function ReadSlot(bag, slot)
+    local entry = { bag = bag, slot = slot }
+    local info = C_Container.GetContainerItemInfo(bag, slot)
+    if info and info.itemID then
+        entry.info = info
+        local quality = info.quality
+        if ns.IsSecret(quality) then quality = nil end
+        if quality == POOR then
+            entry.grey = true
+            local count = info.stackCount or 1
+            if ns.IsSecret(count) then count = 1 end
+            entry.value = (info.hasNoValue and 0 or SellPrice(info.hyperlink)) * count
+            entry.sig = tostring(info.itemID) .. ":" .. tostring(count)
+        end
+    end
+    return entry
+end
+
+-- Where Blizzard's sort leaves the free slots: true = at the start of the
+-- display (reverse fill), false = at the end. Returns nil when the bag's
+-- actual layout contradicts the sort direction, in which case the caller
+-- must not guess.
 local function FreeAtStart(list)
     local flag
     if C_Container and C_Container.GetSortBagsRightToLeft then
@@ -103,18 +125,22 @@ local function FreeAtStart(list)
         if ok and not ns.IsSecret(v) then flag = v and true or false end
     end
     if flag == nil then flag = ns.db and ns.db.oneBagReverse and true or false end
-    -- Sanity check against what the bag actually looks like.
     local leading, trailing = 0, 0
     for i = 1, #list do if list[i].info then break end leading = leading + 1 end
     for i = #list, 1, -1 do if list[i].info then break end trailing = trailing + 1 end
-    if flag and trailing > 0 and leading == 0 then flag = false end
-    if not flag and leading > 0 and trailing == 0 then flag = true end
+    -- Reverse fill should leave empties at the start; forward fill at the
+    -- end. Empties only on the wrong side means the sort has not run the way
+    -- the flag says (or something moved things since), so refuse to plan.
+    if flag and leading == 0 and trailing > 0 then return nil end
+    if not flag and trailing == 0 and leading > 0 then return nil end
     return flag
 end
 
 -- The planned layout: for each target position, the grey signature that
 -- should sit there (cheapest first in display order). Returns the plan as
--- a list of { index = displayIndex, sig = ... , value = ... } and the greys.
+-- a list of { index = displayIndex, sig = ... , value = ... } and the greys,
+-- or nil when there is nothing to do, or false when the layout contradicts
+-- the sort direction.
 local function Plan(list)
     local greys = {}
     for i, e in ipairs(list) do
@@ -129,6 +155,7 @@ local function Plan(list)
 
     local total = #list
     local freeStart = FreeAtStart(list)
+    if freeStart == nil then return false end
     local free = 0
     if freeStart then
         for i = 1, total do if list[i].info then break end free = free + 1 end
@@ -155,13 +182,17 @@ end
 -- Moving
 -------------------------------------------------------------------------------
 
-local running   = false
-local steps     = 0
-local moved     = 0
-local lockWaits = 0
-local lastMove  = nil   -- { bag, slot, itemID } of the last swap's source
-local noops     = 0     -- consecutive swaps the client refused
-local MAX_NOOPS = 3
+local running    = false
+local runSerial  = 0     -- bumped on cancel so stale step timers do nothing
+local plan       = nil   -- computed once per pass
+local snapshot   = nil   -- display list the plan was made from, kept current
+local steps      = 0
+local moved      = 0
+local lockWaits  = 0
+local lastMove   = nil   -- { srcIndex, dstIndex, itemID } of the last swap
+local noops      = 0     -- consecutive swaps the client refused
+local MAX_NOOPS  = 3
+local warnedLayout = false
 
 local function Blocked(force)
     if InCombatLockdown() then
@@ -183,81 +214,117 @@ local function Blocked(force)
     return false
 end
 
-local function Finish()
+local function ResetState()
     running = false
+    plan, snapshot = nil, nil
+    steps, moved, lockWaits, lastMove, noops = 0, 0, 0, nil, 0
+end
+
+local function Finish()
     if moved > 0 and ns.db and ns.db.greySortReport then
         ns.Print(("Grey Sort: moved %d item%s."):format(moved, moved == 1 and "" or "s"))
     end
-    steps, moved, lockWaits, lastMove, noops = 0, 0, 0, nil, 0
+    ResetState()
+end
+
+-- Stop a running pass dead: pending step timers are invalidated by the
+-- serial bump, anything on the cursor goes back, and no summary is printed.
+local function Cancel()
+    runSerial = runSerial + 1
+    if running and GetCursorInfo and GetCursorInfo() and ClearCursor then ClearCursor() end
+    ResetState()
 end
 
 local Step
 
+-- Run fn after STEP_DELAY unless the pass was cancelled in the meantime.
 local function Later(fn)
-    C_Timer.After(STEP_DELAY, fn)
+    local my = runSerial
+    C_Timer.After(STEP_DELAY, function()
+        if my == runSerial and running then fn() end
+    end)
 end
 
--- One swap per call: find the first target position whose occupant is not
--- the intended grey, and swap the right grey into it.
+-- Make the plan from a fresh read. Returns true when a plan exists.
+local function MakePlan()
+    local list, locked = ReadBags()
+    if locked then return nil, true end
+    local p = Plan(list)
+    if p == false then
+        if not warnedLayout then
+            warnedLayout = true
+            ns.Print("Grey Sort: bag layout does not match the sort direction, skipped.")
+        end
+        return false
+    end
+    if not p then return false end
+    plan, snapshot = p, list
+    return true
+end
+
+-- One swap per call. The plan is fixed for the pass; only the two slots of
+-- the previous swap are re-read to confirm it, and a full re-plan happens
+-- only when that confirmation fails.
 Step = function()
     if not running then return end
     if Blocked(false) or steps >= MAX_STEPS then Finish() return end
 
-    local list, locked = ReadBags()
-    if locked then
-        lockWaits = lockWaits + 1
-        if lockWaits > LOCK_RETRIES then Finish() return end
-        Later(Step)
-        return
-    end
-    lockWaits = 0
-
-    -- A swap only counts once the re-scan shows the source slot changed. If
-    -- the client refused it (wrong container type, for instance) the same
-    -- plan would repeat forever, so give up after a few refusals in a row.
     if lastMove then
-        local unchanged = false
-        for _, e in ipairs(list) do
-            if e.bag == lastMove.bag and e.slot == lastMove.slot then
-                unchanged = (e.info and e.info.itemID) == lastMove.itemID
-                break
-            end
+        local src = ReadSlot(snapshot[lastMove.srcIndex].bag, snapshot[lastMove.srcIndex].slot)
+        local dst = ReadSlot(snapshot[lastMove.dstIndex].bag, snapshot[lastMove.dstIndex].slot)
+        if (src.info and src.info.isLocked) or (dst.info and dst.info.isLocked) then
+            lockWaits = lockWaits + 1
+            if lockWaits > LOCK_RETRIES then Finish() return end
+            Later(Step)
+            return
         end
+        lockWaits = 0
+        local landed = dst.info and dst.info.itemID == lastMove.itemID
         lastMove = nil
-        if unchanged then
-            moved = moved - 1
+        if landed then
+            noops = 0
+            moved = moved + 1
+        else
+            -- The client refused the swap or something else moved things.
             noops = noops + 1
             if noops >= MAX_NOOPS then Finish() return end
-        else
-            noops = 0
+            local ok, locked = MakePlan()
+            if locked then Later(Step) return end
+            if not ok then Finish() return end
+        end
+        if landed then
+            -- Keep the snapshot current without a full read.
+            for i, e in ipairs(snapshot) do
+                if e.bag == src.bag and e.slot == src.slot then snapshot[i] = src end
+                if e.bag == dst.bag and e.slot == dst.slot then snapshot[i] = dst end
+            end
         end
     end
 
-    local plan = Plan(list)
     if not plan then Finish() return end
 
     for _, p in ipairs(plan) do
-        local occupant = list[p.index]
+        local occupant = snapshot[p.index]
         if not (occupant.grey and occupant.sig == p.sig) then
-            -- Find a grey with this signature that is not already sitting
-            -- on a satisfied target position.
+            -- A grey with this signature that is not already sitting on a
+            -- satisfied target position.
             local satisfied = {}
             for _, q in ipairs(plan) do
-                local o = list[q.index]
+                local o = snapshot[q.index]
                 if o.grey and o.sig == q.sig then satisfied[q.index] = true end
             end
-            local src
-            for i, e in ipairs(list) do
-                if e.grey and e.sig == p.sig and not satisfied[i] then src = e break end
+            local srcIndex
+            for i, e in ipairs(snapshot) do
+                if e.grey and e.sig == p.sig and not satisfied[i] then srcIndex = i break end
             end
-            if not src then Finish() return end
+            if not srcIndex then Finish() return end
+            local src = snapshot[srcIndex]
 
-            lastMove = { bag = src.bag, slot = src.slot, itemID = src.info.itemID }
+            lastMove = { srcIndex = srcIndex, dstIndex = p.index, itemID = src.info.itemID }
             C_Container.PickupContainerItem(src.bag, src.slot)
             C_Container.PickupContainerItem(occupant.bag, occupant.slot)
             if GetCursorInfo and GetCursorInfo() then ClearCursor() end
             steps = steps + 1
-            moved = moved + 1
             Later(Step)
             return
         end
@@ -265,19 +332,41 @@ Step = function()
     Finish()
 end
 
+-- Start a pass from a settled bag. A pass already running is cancelled so
+-- two never interleave.
 local function Run(force)
     if not ns.db then return end
     if not force and not ns.db.greySortEnabled then return end
-    if running then return end
+    if running then Cancel() end
     if not C_Container or not C_Container.PickupContainerItem or not C_Container.GetContainerItemInfo then
         if force then ns.Print("Grey Sort: container API not available.") end
         return
     end
     if Blocked(force) then return end
+    runSerial = runSerial + 1
     running = true
     steps, moved, lockWaits, lastMove, noops = 0, 0, 0, nil, 0
-    Step()
+
+    local waits = 0
+    local function start()
+        if not running then return end
+        local ok, locked = MakePlan()
+        if locked then
+            waits = waits + 1
+            if waits > LOCK_RETRIES then ResetState() return end
+            Later(start)
+            return
+        end
+        if not ok then ResetState() return end
+        Step()
+    end
+    start()
 end
+
+ns.GreySort = {
+    IsBusy = function() return running end,
+    Cancel = Cancel,
+}
 
 -------------------------------------------------------------------------------
 -- Trigger: after any bag sort
@@ -286,6 +375,8 @@ end
 local pendingSort = false
 local sortSerial  = 0
 
+-- Each BAG_UPDATE_DELAYED while a sort is pending pushes the start back, so
+-- the pass begins AFTER_SORT seconds after the last update: a settled bag.
 local function ScheduleAfterSort(delay)
     sortSerial = sortSerial + 1
     local my = sortSerial
@@ -296,6 +387,15 @@ local function ScheduleAfterSort(delay)
     end)
 end
 
+-- A new sort (Blizzard's, One Bag's, or the bag being re-shown) while a
+-- pass is running: drop the pass and start over once the bag settles.
+local function RestartAfterSort()
+    if not ns.db or not ns.db.greySortEnabled then return end
+    if running then Cancel() end
+    pendingSort = true
+    ScheduleAfterSort(SORT_FALLBACK)
+end
+
 local frame = CreateFrame("Frame")
 frame:RegisterEvent("BAG_UPDATE_DELAYED")
 frame:SetScript("OnEvent", function(self, event)
@@ -304,16 +404,20 @@ frame:SetScript("OnEvent", function(self, event)
     end
 end)
 
-local hooked = false
+local hooked, hookedShow = false, false
 local function HookSort()
-    if hooked then return end
-    if not C_Container or not C_Container.SortBags or not hooksecurefunc then return end
-    hooksecurefunc(C_Container, "SortBags", function()
-        if not ns.db or not ns.db.greySortEnabled then return end
-        pendingSort = true
-        ScheduleAfterSort(SORT_FALLBACK)
-    end)
-    hooked = true
+    if not hooked and C_Container and C_Container.SortBags and hooksecurefunc then
+        hooksecurefunc(C_Container, "SortBags", RestartAfterSort)
+        hooked = true
+    end
+    if not hookedShow and ContainerFrameCombinedBags and ContainerFrameCombinedBags.HookScript then
+        ContainerFrameCombinedBags:HookScript("OnShow", function()
+            -- Re-shown mid-pass: Blizzard may lay the bag out again, and One
+            -- Bag may sort it; start over from a settled state.
+            if running then RestartAfterSort() end
+        end)
+        hookedShow = true
+    end
 end
 
 -------------------------------------------------------------------------------
@@ -332,6 +436,11 @@ ns:RegisterModule({
     },
     OnInit = function()
         HookSort()
+        -- The combined bag frame may not exist until Blizzard's UI is up.
+        local f = CreateFrame("Frame")
+        ns.SafeRegisterEvent(f, "PLAYER_LOGIN")
+        ns.SafeRegisterEvent(f, "PLAYER_ENTERING_WORLD")
+        f:SetScript("OnEvent", HookSort)
     end,
     commands = {
         greysort = function() Run(true) end,
