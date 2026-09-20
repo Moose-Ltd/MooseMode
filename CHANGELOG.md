@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+Fixes from the pre-release code review.
+
+- Settings backup: the macro backup is never overwritten with defaults before a restore has been attempted with the macro list loaded; restores retry on UPDATE_MACROS, login and entering the world, and a change made before the restore is merged rather than lost. False option defaults are no longer written on every save.
+- Fast Loot, One Bag, Graphics: the character's previous CVar value is remembered exactly when an option is enabled, so disabling it restores what the character had instead of a hardcoded default.
+- Shared helpers in Core for CVars, safe event registration and the bag count, so every module counts bags the same way.
+- Grey Sort: special containers (quiver, ammo pouch, soul bag, profession bags) are left out of the plan, and a swap the client refuses no longer counts or repeats; the pass stops after three refused swaps.
+- Quest Rewards: item data the server refuses is not requested again, which removes a request loop while the reward window is open.
+- Auto Quest: debug lines are built only when debug logging is on.
+- Beta Client: removed an unobservable guard around hiding the Issue Reporter.
+- Pet Attack: macro names are shortened on character boundaries (no split UTF-8), and two spells that shorten to the same name get distinct macros instead of overwriting each other.
+
 ## 1.1.0-forever
 
 First public release for World of Warcraft: Forever (interface 16001).
