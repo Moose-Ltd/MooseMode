@@ -15,6 +15,8 @@
 
 Sells greys, loots instantly, accepts and hands in quests, repairs, combines bags, and marks the best quest reward. Thirteen small modules behind a purple star on the minimap, each one a tick you can turn off.
 
+<img src="docs/media/addon-settings.png" alt="The MooseMode settings dialog in game" width="640">
+
 </div>
 
 ---
