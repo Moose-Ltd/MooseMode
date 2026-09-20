@@ -159,6 +159,6 @@ jobs:
           response=$(curl -sS -f -H "X-Api-Token: $CF_API_KEY" \
             -F "metadata=<$RUNNER_TEMP/metadata.json" \
             -F "file=@$zip" \
-            "https://wow.curseforge.com/api/projects/$project/upload-files")
+            "https://wow.curseforge.com/api/projects/$project/upload-file")
           file_id=$(node -e 'const r = JSON.parse(process.argv[1]); console.log(r.id || "")' "$response")
           echo "CurseForge: uploaded $zip to project $project as file $file_id ($release_type, $gv_name)" | tee -a "$GITHUB_STEP_SUMMARY"
