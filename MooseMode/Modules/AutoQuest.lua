@@ -284,8 +284,10 @@ end
 local function OnQuestDetail()
     local questID = GetQuestID()
     local autoAccept = QuestGetAutoAccept()
-    Debug("QUEST_DETAIL quest %s %s autoAccept=%s onQuest=%s %s",
-        Str(questID), Str(GetTitleText and GetTitleText() or nil), Str(autoAccept), Str(IsOnQuest(questID)), LevelInfo(questID))
+    if ns.db.autoQuestDebug then
+        Debug("QUEST_DETAIL quest %s %s autoAccept=%s onQuest=%s %s",
+            Str(questID), Str(GetTitleText and GetTitleText() or nil), Str(autoAccept), Str(IsOnQuest(questID)), LevelInfo(questID))
+    end
     if not Enabled("autoQuest") then Debug("skipped: %s", SkipReason()) return end
 
     if autoAccept then
@@ -313,9 +315,11 @@ local function AcceptGreetingQuest()
     if ns.IsSecret(n) or not n then return false end
     -- GetAvailableQuestInfo(i) -> isTrivial, frequency, isRepeatable,
     -- isLegendary, questID, ... (Blizzard QuestFrame.lua)
-    for i = 1, n do
-        local isTrivial, _, _, _, questID = GetAvailableQuestInfo(i)
-        Debug("  available %d: quest %s %s %s", i, Str(questID), Str(GetAvailableTitle(i)), LevelInfo(questID, isTrivial))
+    if ns.db.autoQuestDebug then
+        for i = 1, n do
+            local isTrivial, _, _, _, questID = GetAvailableQuestInfo(i)
+            Debug("  available %d: quest %s %s %s", i, Str(questID), Str(GetAvailableTitle(i)), LevelInfo(questID, isTrivial))
+        end
     end
     if not Enabled("autoQuest") then Debug("skipped: %s", SkipReason()) return false end
     for i = 1, n do
@@ -335,8 +339,10 @@ local function AcceptGossipQuest()
     local quests = C_GossipInfo.GetAvailableQuests()
     Debug("gossip: %d available", CountTable(quests))
     if type(quests) ~= "table" then return false end
-    for i, q in ipairs(quests) do
-        Debug("  available %d: quest %s %s %s", i, Str(q.questID), Str(q.title), LevelInfo(q.questID, q.isTrivial))
+    if ns.db.autoQuestDebug then
+        for i, q in ipairs(quests) do
+            Debug("  available %d: quest %s %s %s", i, Str(q.questID), Str(q.title), LevelInfo(q.questID, q.isTrivial))
+        end
     end
     if not Enabled("autoQuest") then Debug("skipped: %s", SkipReason()) return false end
     for _, q in ipairs(quests) do
@@ -395,9 +401,11 @@ local function TurnInGreetingQuest()
     local n = GetNumActiveQuests()
     Debug("greeting: %s active", Str(n))
     if ns.IsSecret(n) or not n then return false end
-    for i = 1, n do
-        local questID = GetActiveQuestID(i)
-        Debug("  active %d: quest %s %s complete=%s", i, Str(questID), Str(GetActiveTitle(i)), Str(IsQuestComplete(questID)))
+    if ns.db.autoQuestDebug then
+        for i = 1, n do
+            local questID = GetActiveQuestID(i)
+            Debug("  active %d: quest %s %s complete=%s", i, Str(questID), Str(GetActiveTitle(i)), Str(IsQuestComplete(questID)))
+        end
     end
     if not TurnInEnabled() then return false end
     for i = 1, n do
@@ -416,8 +424,10 @@ local function TurnInGossipQuest()
     local quests = C_GossipInfo.GetActiveQuests()
     Debug("gossip: %d active", CountTable(quests))
     if type(quests) ~= "table" then return false end
-    for i, q in ipairs(quests) do
-        Debug("  active %d: quest %s %s complete=%s", i, Str(q.questID), Str(q.title), Str(q.isComplete))
+    if ns.db.autoQuestDebug then
+        for i, q in ipairs(quests) do
+            Debug("  active %d: quest %s %s complete=%s", i, Str(q.questID), Str(q.title), Str(q.isComplete))
+        end
     end
     if not TurnInEnabled() then return false end
     for _, q in ipairs(quests) do
