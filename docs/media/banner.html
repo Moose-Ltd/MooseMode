@@ -1,0 +1,70 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>MooseMode banner</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; padding: 0; background: #0b0713; }
+  .banner {
+    width: 1280px; height: 640px; position: relative; overflow: hidden;
+    background:
+      radial-gradient(1100px 520px at 18% 40%, rgba(120, 60, 220, 0.42), transparent 60%),
+      radial-gradient(900px 500px at 85% 80%, rgba(60, 20, 120, 0.55), transparent 60%),
+      linear-gradient(135deg, #12081f 0%, #0b0713 55%, #07040d 100%);
+    font-family: Inter, system-ui, sans-serif; color: #f2ecff;
+  }
+  .grid {
+    position: absolute; inset: 0; opacity: 0.08;
+    background-image: linear-gradient(rgba(255,255,255,0.6) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(255,255,255,0.6) 1px, transparent 1px);
+    background-size: 64px 64px;
+    mask-image: radial-gradient(800px 500px at 30% 45%, #000 20%, transparent 75%);
+  }
+  .orb {
+    position: absolute; left: 96px; top: 140px; width: 360px; height: 360px;
+    filter: drop-shadow(0 0 60px rgba(150, 90, 255, 0.55));
+  }
+  .text { position: absolute; left: 520px; top: 150px; width: 700px; }
+  h1 {
+    margin: 0; font-family: Cinzel, serif; font-weight: 700; font-size: 104px; line-height: 1;
+    letter-spacing: 1px;
+    background: linear-gradient(180deg, #ffffff 0%, #d9c4ff 55%, #b47cff 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    text-shadow: none;
+  }
+  .tag { margin: 26px 0 0; font-size: 30px; font-weight: 500; color: #cbb8f0; letter-spacing: 0.2px; }
+  .chips { margin-top: 44px; display: flex; flex-wrap: wrap; gap: 12px; width: 680px; }
+  .chip {
+    padding: 10px 18px; border-radius: 999px; font-size: 20px; font-weight: 600;
+    color: #efe6ff; background: rgba(120, 70, 210, 0.22);
+    border: 1px solid rgba(180, 130, 255, 0.45);
+  }
+  .foot {
+    position: absolute; left: 520px; bottom: 54px; font-size: 20px; color: #9d8bc4; font-weight: 500;
+  }
+  .foot b { color: #d5c4ff; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="banner">
+  <div class="grid"></div>
+  <img class="orb" src="../../tools/MooseMode-icon-512.png" alt="">
+  <div class="text">
+    <h1>MooseMode</h1>
+    <p class="tag">Quality of life for World of Warcraft: Forever, from one settings window.</p>
+    <div class="chips">
+      <span class="chip">Auto sell</span>
+      <span class="chip">Fast loot</span>
+      <span class="chip">Auto quest</span>
+      <span class="chip">Auto repair</span>
+      <span class="chip">One bag</span>
+      <span class="chip">Reward values</span>
+      <span class="chip">Pet attack</span>
+      <span class="chip">Spell ranks</span>
+    </div>
+  </div>
+  <div class="foot">Built for <b>Forever 1.60</b> &nbsp;·&nbsp; <b>/moose</b> opens the dialog &nbsp;·&nbsp; free, by Moose Ltd</div>
+</div>
+</body>
+</html>
