@@ -1,0 +1,98 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>MooseMode features</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; padding: 0; background: #0b0713; }
+  .card {
+    width: 1280px; height: 720px; position: relative; overflow: hidden; box-sizing: border-box;
+    padding: 56px 72px;
+    background:
+      radial-gradient(900px 420px at 10% 0%, rgba(120, 60, 220, 0.35), transparent 60%),
+      radial-gradient(900px 500px at 95% 100%, rgba(60, 20, 120, 0.5), transparent 60%),
+      linear-gradient(135deg, #12081f 0%, #0b0713 55%, #07040d 100%);
+    font-family: Inter, system-ui, sans-serif; color: #f2ecff;
+  }
+  .head { display: flex; align-items: center; gap: 22px; margin-bottom: 36px; }
+  .head img { width: 72px; height: 72px; filter: drop-shadow(0 0 18px rgba(150, 90, 255, 0.5)); }
+  .head h1 {
+    margin: 0; font-family: Cinzel, serif; font-weight: 700; font-size: 44px; line-height: 1;
+    background: linear-gradient(180deg, #ffffff 0%, #d9c4ff 55%, #b47cff 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .head p { margin: 6px 0 0; font-size: 19px; color: #a998cf; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .tile {
+    border-radius: 16px; padding: 22px 24px; box-sizing: border-box;
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid rgba(180, 130, 255, 0.28);
+    min-height: 168px;
+  }
+  .tile h2 { margin: 0 0 12px; font-size: 21px; font-weight: 600; color: #e9dcff; letter-spacing: 0.2px; }
+  .tile h2 span { color: #b47cff; margin-right: 10px; }
+  .tile ul { margin: 0; padding: 0; list-style: none; }
+  .tile li { font-size: 17px; line-height: 1.5; color: #cbbfe6; padding-left: 16px; position: relative; }
+  .tile li::before { content: ""; position: absolute; left: 0; top: 10px; width: 6px; height: 6px; border-radius: 50%; background: #9d6bff; }
+  .wide { grid-column: span 2; }
+  .foot { position: absolute; left: 72px; right: 72px; bottom: 34px; display: flex; justify-content: space-between; font-size: 17px; color: #8d7db3; }
+  .foot b { color: #d5c4ff; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="head">
+    <img src="../../tools/MooseMode-icon-512.png" alt="">
+    <div>
+      <h1>What MooseMode does</h1>
+      <p>Thirteen modules, one settings window, hold Shift to skip any of it once.</p>
+    </div>
+  </div>
+  <div class="grid">
+    <div class="tile">
+      <h2><span>◆</span>Vendors</h2>
+      <ul>
+        <li>Sells every grey the moment a vendor opens</li>
+        <li>Repairs all gear, guild funds optional</li>
+        <li>Gold earned and spent reported in chat</li>
+      </ul>
+    </div>
+    <div class="tile wide">
+      <h2><span>◆</span>Quests</h2>
+      <ul>
+        <li>Accepts, hands in, and picks up follow-ups from any quest window or gossip menu</li>
+        <li>Skips grey or green quests by your rule, and says why at the bottom of the window</li>
+        <li>Reward choices show their vendor value; the best one is framed in gold</li>
+      </ul>
+    </div>
+    <div class="tile">
+      <h2><span>◆</span>Loot</h2>
+      <ul>
+        <li>Takes everything the instant loot is ready</li>
+        <li>Optionally leaves greys on the corpse</li>
+      </ul>
+    </div>
+    <div class="tile">
+      <h2><span>◆</span>Combat</h2>
+      <ul>
+        <li>/petattack macros for every damage spell</li>
+        <li>Bar buttons kept on your highest spell rank</li>
+      </ul>
+    </div>
+    <div class="tile">
+      <h2><span>◆</span>Interface</h2>
+      <ul>
+        <li>One combined bag, sorted on open, greys grouped</li>
+        <li>Macro names hidden, camera zoom unlocked</li>
+        <li>Beta Issue Reporter tucked away</li>
+      </ul>
+    </div>
+  </div>
+  <div class="foot">
+    <div><b>/moose</b> opens the settings dialog</div>
+    <div>Settings are account-wide and survive the beta client's saved-variable bug</div>
+  </div>
+</div>
+</body>
+</html>
