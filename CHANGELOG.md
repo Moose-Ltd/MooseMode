@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.2-forever
+
+- Same code as 1.2.1, published on CurseForge as a Release rather than a Beta file.
+
 ## 1.2.1-forever
 
 - One Bag: the tick simply turns combined bags on or off, and takes effect straight away.

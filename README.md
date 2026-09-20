@@ -4,7 +4,7 @@
 
 **Quality of life for World of Warcraft: Forever, from one settings window.**
 
-[![Version](https://img.shields.io/badge/version-1.2.1--forever-b04cff?style=flat-square)](./MooseMode/MooseMode.toc)
+[![Version](https://img.shields.io/badge/version-1.2.2--forever-b04cff?style=flat-square)](./MooseMode/MooseMode.toc)
 [![Game](https://img.shields.io/badge/game-WoW%3A%20Forever%201.60.1-1f6feb?style=flat-square)](https://worldofwarcraft.blizzard.com)
 [![Interface](https://img.shields.io/badge/interface-16001-555?style=flat-square)](./MooseMode/MooseMode.toc)
 [![License](https://img.shields.io/badge/license-Proprietary-555?style=flat-square)](#license)
