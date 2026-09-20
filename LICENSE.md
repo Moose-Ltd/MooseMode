@@ -23,7 +23,7 @@ MooseMode is shared openly so that players can install it, read it, and trust it
 ## Official sources
 
 - CurseForge: the MooseMode project page
-- GitHub: the Moose Ltd MooseMode repository
+- GitHub: https://github.com/Moose-Ltd/MooseMode
 
 Anything published elsewhere is not an official copy.
 
