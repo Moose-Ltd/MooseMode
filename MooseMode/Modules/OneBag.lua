@@ -25,32 +25,6 @@ local ADDON, ns = ...
 local CVAR = "combinedBags"
 local CLEANUP_DEBOUNCE = 2   -- seconds between automatic sorts
 
--------------------------------------------------------------------------------
--- CVar helpers
--------------------------------------------------------------------------------
-
-local function CVarExists()
-    local getInfo = (C_CVar and C_CVar.GetCVarInfo) or GetCVarInfo
-    if not getInfo then return false end
-    local ok, value = pcall(getInfo, CVAR)
-    return ok and value ~= nil
-end
-
-local function GetCombined()
-    local get = (C_CVar and C_CVar.GetCVar) or GetCVar
-    if not get then return nil end
-    local ok, value = pcall(get, CVAR)
-    if not ok then return nil end
-    return value
-end
-
-local function SetCombined(value)
-    local set = (C_CVar and C_CVar.SetCVar) or SetCVar
-    if not set then return false end
-    local ok = pcall(set, CVAR, value)
-    return ok
-end
-
 local function AnyBagOpen()
     if IsAnyBagOpen then
         local ok, open = pcall(IsAnyBagOpen)
@@ -74,33 +48,18 @@ local function RelayoutBags()
     end
 end
 
--- Make the client's CVar match the account-wide option.
+-- Make the client's CVar match the account-wide option. The character's own
+-- value is remembered in db.oneBagPrevCVar and put back exactly on disable.
 local function ApplyOneBag(enabled, announce)
-    local db = ns.db
-    if not db then return end
-    if not CVarExists() then
+    if not ns.db then return end
+    if not ns.CVar.Exists(CVAR) then
         if announce then
             ns.Print("This client has no combined-bag mode (CVar '" .. CVAR .. "' missing); One bag cannot be applied.")
         end
         return
     end
-
-    local current = GetCombined()
-    if enabled then
-        if db.oneBagPrevCVar == nil and current ~= nil and current ~= "1" then
-            db.oneBagPrevCVar = current
-        end
-        if current ~= "1" then
-            SetCombined("1")
-            RelayoutBags()
-        end
-    else
-        local restore = db.oneBagPrevCVar or "0"
-        db.oneBagPrevCVar = nil
-        if current ~= restore then
-            SetCombined(restore)
-            RelayoutBags()
-        end
+    if ns.CVar.ApplyWithSnapshot(CVAR, "1", "oneBagPrevCVar", enabled) then
+        RelayoutBags()
     end
 end
 

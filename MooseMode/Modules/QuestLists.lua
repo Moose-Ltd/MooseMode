@@ -46,9 +46,7 @@ local function Enabled()
     return ns.db and ns.db.questListSkipNote and true or false
 end
 
-local function SafeRegister(f, event)
-    return pcall(f.RegisterEvent, f, event)
-end
+local SafeRegister = ns.SafeRegisterEvent
 
 -- "|cffrrggbb" for a difficulty name (grey/green/...), or grey when unknown.
 local function ColourCodeFor(name)

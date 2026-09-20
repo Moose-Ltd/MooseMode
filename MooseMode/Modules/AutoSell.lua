@@ -26,9 +26,6 @@ local POOR = (Enum and Enum.ItemQuality and Enum.ItemQuality.Poor) or 0
 -- Bag reading (summary only)
 -------------------------------------------------------------------------------
 
-local function NumBags()
-    return NUM_TOTAL_EQUIPPED_BAG_SLOTS or NUM_BAG_SLOTS or 4
-end
 
 -- Returns containerInfo, quality, sellPrice for a bag slot, or nil if the
 -- slot is empty, locked, or unreadable.
@@ -52,7 +49,7 @@ end
 -- Counts the grey items with a sell value and totals their vendor value.
 local function CountGreys()
     local count, total = 0, 0
-    for bag = 0, NumBags() do
+    for bag = 0, ns.NumBags() do
         local slots = C_Container.GetContainerNumSlots(bag) or 0
         for slot = 1, slots do
             local info, quality, sellPrice = SlotInfo(bag, slot)

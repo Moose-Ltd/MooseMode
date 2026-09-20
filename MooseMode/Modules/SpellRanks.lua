@@ -245,9 +245,7 @@ local frame = CreateFrame("Frame")
 -- Event names differ between client lines: LEARNED_SPELL_IN_TAB was renamed
 -- LEARNED_SPELL_IN_SKILL_LINE in the Retail line that Forever runs. Register
 -- whichever exist; SPELLS_CHANGED alone is enough to catch new ranks.
-local function SafeRegister(f, event)
-    return pcall(f.RegisterEvent, f, event)
-end
+local SafeRegister = ns.SafeRegisterEvent
 SafeRegister(frame, "PLAYER_LOGIN")
 SafeRegister(frame, "LEARNED_SPELL_IN_SKILL_LINE")
 SafeRegister(frame, "LEARNED_SPELL_IN_TAB")

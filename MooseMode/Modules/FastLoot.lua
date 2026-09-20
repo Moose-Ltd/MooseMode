@@ -27,59 +27,19 @@ local SLOT_ITEM = (Enum and Enum.LootSlotType and Enum.LootSlotType.Item) or 1
 
 local CVAR = "autoLootDefault"
 
--------------------------------------------------------------------------------
--- CVar helpers
--------------------------------------------------------------------------------
-
-local function CVarExists()
-    local getInfo = (C_CVar and C_CVar.GetCVarInfo) or GetCVarInfo
-    if not getInfo then return false end
-    local ok, value = pcall(getInfo, CVAR)
-    return ok and value ~= nil
-end
-
-local function GetAutoLoot()
-    local get = (C_CVar and C_CVar.GetCVar) or GetCVar
-    if not get then return nil end
-    local ok, value = pcall(get, CVAR)
-    if not ok then return nil end
-    return value
-end
-
-local function SetAutoLoot(value)
-    local set = (C_CVar and C_CVar.SetCVar) or SetCVar
-    if not set then return false end
-    local ok = pcall(set, CVAR, value)
-    return ok
-end
-
 -- Make the client's auto-loot CVar match the account-wide option: off while
--- Fast Loot owns looting, restored to the saved value when it does not.
+-- Fast Loot owns looting, restored to exactly what the character had when it
+-- does not (ns.CVar.ApplyWithSnapshot keeps the previous value in
+-- db.fastLootPrevAutoLoot).
 local function ApplyFastLoot(enabled, announce)
-    local db = ns.db
-    if not db then return end
-    if not CVarExists() then
+    if not ns.db then return end
+    if not ns.CVar.Exists(CVAR) then
         if announce then
             ns.Print("This client has no '" .. CVAR .. "' setting; Fast Loot will run alongside the game's own auto-loot.")
         end
         return
     end
-
-    local current = GetAutoLoot()
-    if enabled then
-        if db.fastLootPrevAutoLoot == nil and current ~= nil and current ~= "0" then
-            db.fastLootPrevAutoLoot = current
-        end
-        if current ~= "0" then
-            SetAutoLoot("0")
-        end
-    else
-        local restore = db.fastLootPrevAutoLoot or "1"
-        db.fastLootPrevAutoLoot = nil
-        if current ~= restore then
-            SetAutoLoot(restore)
-        end
-    end
+    ns.CVar.ApplyWithSnapshot(CVAR, "0", "fastLootPrevAutoLoot", enabled)
 end
 
 -------------------------------------------------------------------------------
