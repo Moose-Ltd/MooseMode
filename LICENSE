@@ -1,0 +1,50 @@
+PROPRIETARY SOFTWARE LICENSE
+
+Copyright (c) 2026 Matt Berry / Moose Ltd. All rights reserved.
+
+MooseMode and everything in this repository (the "Software") is the
+property of Matt Berry / Moose Ltd ("the Owner"). It is published so
+that players can install it, read it and trust it; publication grants
+no further right.
+
+You may:
+
+  1. Install and use the Software in World of Warcraft on your own
+     accounts and characters, at no cost.
+  2. Read the source code.
+  3. Modify your own installed copy, provided the modified copy stays
+     on your own machines.
+
+Without the prior written consent of the Owner, you may not:
+
+  1. Copy, mirror, bundle, redistribute, sublicense, sell, rent or
+     otherwise transfer the Software or any part of it.
+  2. Publish a renamed, reskinned or otherwise derived addon based on
+     the Software.
+  3. Charge for the Software or place it behind any paywall,
+     subscription or donation gate.
+  4. Remove, obscure or alter any copyright, licence or author notice.
+  5. Use the MooseMode name, icon or branding to imply that other work
+     is made or endorsed by the Owner.
+
+The official sources are the CurseForge project page and
+https://github.com/Moose-Ltd/MooseMode. Copies published elsewhere are
+not official.
+
+Contributions submitted through the official repository become the
+property of the Owner on submission.
+
+This licence ends automatically if you breach any of its terms; on
+termination you must delete every copy of the Software you hold.
+
+World of Warcraft is a trademark of Blizzard Entertainment, Inc., which
+does not sponsor or endorse MooseMode.
+
+NO WARRANTY. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY
+KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NON-INFRINGEMENT. IN NO EVENT SHALL THE OWNER BE LIABLE FOR ANY CLAIM,
+DAMAGES OR OTHER LIABILITY ARISING FROM OR IN CONNECTION WITH THE
+SOFTWARE OR ITS USE.
+
+For licensing inquiries, contact: matthewjfberry@gmail.com
