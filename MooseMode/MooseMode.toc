@@ -6,7 +6,7 @@
 ## X-Website: https://github.com/Moose-Ltd/MooseMode
 # CurseForge project id (the number on the project page). Once set, every
 # tagged release is uploaded to CurseForge by .github/workflows/release.yml.
-## X-Curse-Project-ID:
+## X-Curse-Project-ID: 1703988
 ## Version: 1.2.0-forever
 ## IconTexture: Interface\AddOns\MooseMode\media\icon.tga
 ## SavedVariables: MooseModeDB
