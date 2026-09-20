@@ -105,16 +105,14 @@ local function HookCombinedBags()
     hookedCombined = true
 end
 
--- Where the sort packs items. The combined bag displays the backpack first
--- (top rows) and the last bag at the bottom, and Blizzard's sort packs bags
--- left to right (backpack first) unless SetSortBagsRightToLeft(true). So
--- "top" = false (backpack first), "bottom" = true. New items follow the same
--- direction via SetInsertItemsLeftToRight.
+-- Where the sort packs items. Observed live on Forever's combined bag:
+-- SetSortBagsRightToLeft(true) packs items from the TOP-left with no strays;
+-- false packs toward the bottom and leaves a stray. So "top" = true,
+-- "bottom" = false. The insert-direction setting is left alone.
 --
--- Both directions looked bottom-packed on a live bag because the backpack
--- carried the "ignore this bag when sorting" flag, which makes the sort skip
--- it entirely and strands whatever is in it. Sorting on open only makes sense
--- when no bag is ignored, so the flags are cleared here.
+-- Any bag flagged "ignore this bag when sorting" is skipped by the sort and
+-- strands whatever is in it; sorting on open only makes sense when no bag is
+-- ignored, so the flags are cleared here.
 local warnedIgnored = false
 local function ClearIgnoreFlags()
     if not C_Container then return end
@@ -143,12 +141,8 @@ local function ClearIgnoreFlags()
 end
 
 local function ApplyPack(pack)
-    local bottom = (pack == "bottom")
     if C_Container and C_Container.SetSortBagsRightToLeft then
-        pcall(C_Container.SetSortBagsRightToLeft, bottom)
-    end
-    if C_Container and C_Container.SetInsertItemsLeftToRight then
-        pcall(C_Container.SetInsertItemsLeftToRight, not bottom)
+        pcall(C_Container.SetSortBagsRightToLeft, pack ~= "bottom")
     end
     ClearIgnoreFlags()
 end
