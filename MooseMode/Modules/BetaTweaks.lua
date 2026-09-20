@@ -26,7 +26,6 @@
 local ADDON, ns = ...
 
 local hooked = false
-local rehiding = false
 
 local function Reporter()
     local f = _G.PTR_IssueReporter
@@ -44,9 +43,7 @@ local function HideReporter()
     if not WantHidden() then return end
     local f = Reporter()
     if not f then return end
-    rehiding = true
     pcall(f.Hide, f)
-    rehiding = false
 end
 
 local function ShowReporter()
@@ -73,7 +70,6 @@ local function InstallHooks()
             end)
         end
         hooksecurefunc(f, "Show", function()
-            if rehiding then return end
             if WantHidden() then
                 HideReporter()
             end
