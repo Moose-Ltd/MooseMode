@@ -16,14 +16,8 @@
 --   oneBagAutoCleanup  Auto cleanup when the bag opens (sub-option)
 --   oneBagReverse      Cleanup fills bags from the last slot (sub-option)
 --
--- db.oneBagLastSorted holds a fingerprint of the bag contents as of the last
--- completed cleanup (Grey Sort records it when its pass finishes, or this
--- module does once the bag settles when Grey Sort is off). Sort-on-open and
--- /mm cleanup do nothing while the contents still match it, so a tidy bag
--- is never reshuffled by reopening it or cleaning it twice.
---
 -- Commands:
---   /mm cleanup        sort bags now (alias: /mm sort); "Bags already tidy." if nothing to do
+--   /mm cleanup        sort bags now (alias: /mm sort)
 -------------------------------------------------------------------------------
 
 local ADDON, ns = ...
@@ -75,35 +69,6 @@ end
 
 local lastCleanup = 0
 
--- Content fingerprint of the bags (from GreySort's shared helper), or nil
--- when it is unavailable or a slot is mid-move.
-local function CurrentFingerprint()
-    if not (ns.Bags and ns.Bags.Fingerprint) then return nil end
-    local fp, locked = ns.Bags.Fingerprint()
-    if locked then return nil end
-    return fp
-end
-
-local function GreySortActive()
-    return ns.GreySort ~= nil and ns.db and ns.db.greySortEnabled and true or false
-end
-
--- Remember what the bag held once a cleanup has fully finished, so opening
--- it again does not sort unchanged contents. With Grey Sort on, Grey Sort
--- records it when its pass completes; otherwise it is recorded here once
--- the bag settles after Blizzard's sort.
-local function RecordAfterSettle()
-    if GreySortActive() then return end
-    if not (ns.Bags and ns.Bags.Settle) then return end
-    ns.Bags.Settle(function()
-        local fp = CurrentFingerprint()
-        if fp and ns.db and ns.db.oneBagLastSorted ~= fp then
-            ns.db.oneBagLastSorted = fp
-            if ns.SaveSettings then ns.SaveSettings() end
-        end
-    end)
-end
-
 local function Cleanup(force)
     if not C_Container or not C_Container.SortBags then
         if force then ns.Print("Bag sorting is not available on this client.") end
@@ -115,28 +80,8 @@ local function Cleanup(force)
     end
     local now = GetTime()
     if not force and (now - lastCleanup) < CLEANUP_DEBOUNCE then return false end
-
-    -- Unchanged contents are never re-sorted: Blizzard's order and Grey
-    -- Sort's placement differ, and sorting a tidy bag only reshuffles it.
-    local fp = CurrentFingerprint()
-    local unchanged = fp ~= nil and ns.db and ns.db.oneBagLastSorted == fp
-    if force then
-        if unchanged and GreySortActive() and ns.GreySort.IsTidy() then
-            ns.Print("Bags already tidy.")
-            return false
-        end
-        if unchanged and not GreySortActive() then
-            ns.Print("Bags already tidy.")
-            return false
-        end
-        ns.db.oneBagLastSorted = nil
-    elseif unchanged then
-        return false
-    end
-
     lastCleanup = now
     pcall(C_Container.SortBags)
-    RecordAfterSettle()
     return true
 end
 
@@ -194,14 +139,10 @@ ns:RegisterModule({
           tooltip = "Use the client's own combined-bag mode, so clicking, dragging and selling items all keep working. Applied to every character you log in with.",
           onChange = function(checked) ApplyOneBag(checked, true) end },
         { key = "oneBagAutoCleanup", label = "Sort bags on open", default = false, parent = "oneBag",
-          tooltip = "Run the bag sort when the combined bag opens, only when its contents changed since the last cleanup. Never in combat, never at a vendor or the bank." },
+          tooltip = "Run the bag sort when the combined bag opens. At most once every 10 seconds, never in combat, never at a vendor or the bank." },
         { key = "oneBagReverse", label = "Sort from the last slot", default = false, parent = "oneBag",
           tooltip = "Pack items from the last bag slot backwards, leaving the backpack free.",
-          onChange = function(checked)
-              ApplyReverse(checked)
-              -- The target layout changed; the next open must sort again.
-              if ns.db then ns.db.oneBagLastSorted = nil end
-          end },
+          onChange = function(checked) ApplyReverse(checked) end },
     },
     OnInit = function()
         -- PLAYER_LOGIN may already have fired if the addon was loaded late.

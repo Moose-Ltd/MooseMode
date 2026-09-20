@@ -2,8 +2,8 @@
 
 ## Unreleased
 
-- One Bag: sort-on-open runs only when the bag contents changed since the last completed cleanup, so reopening the bag never reshuffles it. `/mm cleanup` does the same check and answers "Bags already tidy." when the contents match and every grey is already in its block, so a second cleanup never triggers Blizzard's sort. The fingerprint is recorded only after the grey pass completes, and is cleared when "Sort from the last slot" changes.
-- Grey Sort: ordering is fully deterministic (value, then item id, then stack size), a new sort cancels a running pass and restarts it once the bag settles, the plan is made once per pass, and a layout that contradicts the sort direction is skipped with a one-time note.
+- Grey Sort: a new sort while a pass is running cancels the pass and restarts it once the bag settles; the plan is made once per pass and each swap is confirmed by re-reading only the two slots involved, so Blizzard's sort and Grey Sort no longer interleave into a different order every time the bag opens. If the bag layout contradicts the sort direction the pass is skipped with a one-time note.
+- One Bag: sort-on-open waits for a running Grey Sort pass, never fires at a vendor or the bank, and runs at most once every 10 seconds.
 
 ## 1.2.0-forever
 
