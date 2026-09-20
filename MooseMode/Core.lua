@@ -211,6 +211,14 @@ local svPending, svScheduled, svWarned, svRestored = false, false, false, false
 local svDirty, svMacrosReady, svAbsentConfirmed = false, false, false
 local svHadKeysAtLoad = false
 
+-- True while a late settings restore is still possible: the saved table was
+-- empty at load and neither a restore nor a confirmed "no backup" has
+-- happened yet. Modules that push settings into per-character client state
+-- at login wait for the restore instead of applying defaults first.
+function ns.SettingsRestorePending()
+    return (not svHadKeysAtLoad) and (not svRestored) and (not svAbsentConfirmed)
+end
+
 -- Second backup channel: a registered CVar. On this client a registered CVar
 -- survives /reload (but not a restart) and is readable at ADDON_LOADED, while
 -- account macros are server-synced and a reload can hand back a stale copy.
@@ -522,9 +530,7 @@ local function SvLateRestore()
     if svRestored or svAbsentConfirmed or not ns.db then return end
     if SvTryRestore(ns.db, true) then
         ApplyDefaults(ns.db)
-        for _, mod in ipairs(ns.modules) do
-            if mod.OnInit and mod.reinitSafe then mod.OnInit(mod) end
-        end
+        -- Re-applies reinit-safe modules and refreshes what is already built.
         if ns.RefreshAfterRestore then ns.RefreshAfterRestore() end
     end
     if (svRestored or svAbsentConfirmed) and svPending and not svScheduled then SvSchedule() end
@@ -1542,6 +1548,16 @@ function ns.ToggleOptions()
 end
 
 function ns.RefreshAfterRestore()
+    -- Modules that push settings into per-character client state (CVars)
+    -- may have applied defaults before the restore landed; those flagged
+    -- reinitSafe have an idempotent OnInit, so run it again on the real
+    -- values.
+    for _, mod in ipairs(ns.modules) do
+        if mod.OnInit and mod.reinitSafe then
+            local ok, err = pcall(mod.OnInit, mod)
+            if not ok then ns.Print("error re-applying " .. tostring(mod.label) .. ": " .. tostring(err)) end
+        end
+    end
     MinimapRefreshAfterRestore()
     if optionsFrame then
         for _, c in ipairs(controls) do c:Refresh() end

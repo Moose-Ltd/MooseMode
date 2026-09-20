@@ -106,7 +106,11 @@ end
 local frame = CreateFrame("Frame")
 frame:RegisterEvent("PLAYER_LOGIN")
 frame:SetScript("OnEvent", function(self, event)
-    if event == "PLAYER_LOGIN" then ApplyAtLogin() end
+    -- While a late settings restore is pending, ns.db holds defaults: wait
+    -- for Core to re-run OnInit (reinitSafe) on the real values.
+    if event == "PLAYER_LOGIN" and not (ns.SettingsRestorePending and ns.SettingsRestorePending()) then
+        ApplyAtLogin()
+    end
 end)
 
 -------------------------------------------------------------------------------
@@ -117,6 +121,7 @@ ns:RegisterModule({
     key   = "graphicsModule",
     label = "Graphics",
     group = "Interface",
+    reinitSafe = true,   -- OnInit only migrates once and applies state from ns.db; safe to run again after a late restore
     options = {
         { key = "graphicsMaxCamera", label = "Max camera zoom distance", default = true,
           tooltip = "Lets you zoom the camera out further than the settings slider allows. Applied on every character.",

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- One Bag: unticking now takes effect (the game setting is re-applied after the settings restore) and the dialog says a reload is needed for the layout to change. Fast Loot and Graphics re-apply the same way.
 - One Bag: "Pack items: Top" now packs from the backpack down (the mapping was inverted), and any bag flagged "ignore when sorting" is un-flagged so the sort covers every bag; a stranded item in the backpack was that flag.
 - Grey Sort removed: two sorters kept undoing each other. One Bag now runs the game's sort only, and "Pack items: Top / Bottom" replaces "Sort from the last slot" (Top packs from the top-left, which is the direction the old tick actually produced when on).
 - One Bag: sort-on-open never fires at a vendor or the bank, and runs at most once every 10 seconds.

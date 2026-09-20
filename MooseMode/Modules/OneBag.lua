@@ -60,6 +60,9 @@ local function ApplyOneBag(enabled, announce)
     end
     if ns.CVar.ApplyWithSnapshot(CVAR, "1", "oneBagPrevCVar", enabled) then
         RelayoutBags()
+        -- The client only rebuilds its bag frames for the new mode on a UI
+        -- reload; closing them above avoids a half-switched window meanwhile.
+        if announce then ns.Print("One Bag: the bag layout changes after /reload.") end
     end
 end
 
@@ -158,8 +161,10 @@ local frame = CreateFrame("Frame")
 frame:RegisterEvent("PLAYER_LOGIN")
 frame:SetScript("OnEvent", function(self, event)
     if event == "PLAYER_LOGIN" then
-        -- CVars are per character; the option is per account.
-        if ns.db then
+        -- CVars are per character; the option is per account. While a late
+        -- settings restore is still pending, ns.db holds defaults, so wait:
+        -- Core re-runs OnInit (reinitSafe) once the real values land.
+        if ns.db and not (ns.SettingsRestorePending and ns.SettingsRestorePending()) then
             ApplyOneBag(ns.db.oneBag and true or false, false)
             ApplyPack(ns.db.oneBagPack)
         end
@@ -175,9 +180,10 @@ ns:RegisterModule({
     key   = "oneBagModule",
     label = "One Bag",
     group = "Interface",
+    reinitSafe = true,   -- OnInit only applies state from ns.db; safe to run again after a late restore
     options = {
         { key = "oneBag", label = "Combine bags into one window", default = true,
-          tooltip = "Use the client's own combined-bag mode, so clicking, dragging and selling items all keep working. Applied to every character you log in with.",
+          tooltip = "Use the client's own combined-bag mode, so clicking, dragging and selling items all keep working. Applied to every character you log in with. The bag layout changes after /reload.",
           onChange = function(checked) ApplyOneBag(checked, true) end },
         { key = "oneBagAutoCleanup", label = "Sort bags on open", default = false, parent = "oneBag",
           tooltip = "Run the bag sort when the combined bag opens. At most once every 10 seconds, never in combat, never at a vendor or the bank." },

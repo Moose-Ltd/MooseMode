@@ -97,8 +97,10 @@ frame:SetScript("OnEvent", function(self, event)
     if event == "LOOT_READY" then
         FastLoot()
     elseif event == "PLAYER_LOGIN" then
-        -- CVars are per character; the option is per account.
-        if ns.db then
+        -- CVars are per character; the option is per account. While a late
+        -- settings restore is pending, ns.db holds defaults: wait for Core to
+        -- re-run OnInit (reinitSafe) on the real values.
+        if ns.db and not (ns.SettingsRestorePending and ns.SettingsRestorePending()) then
             ApplyFastLoot(ns.db.fastLoot and true or false, false)
         end
     end
@@ -112,6 +114,7 @@ ns:RegisterModule({
     key   = "fastLootModule",
     label = "Fast Loot",
     group = "Loot",
+    reinitSafe = true,   -- OnInit only applies state from ns.db; safe to run again after a late restore
     options = {
         { key = "fastLoot", label = "Loot everything instantly", default = true,
           tooltip = "Take every item the moment loot is ready, without waiting for the loot window. Takes over the game's auto-loot setting while on.",
