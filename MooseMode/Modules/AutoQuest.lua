@@ -37,6 +37,7 @@
 -------------------------------------------------------------------------------
 
 local ADDON, ns = ...
+if ns.disabled then return end   -- the other copy of MooseMode is running (see Core.lua)
 
 -------------------------------------------------------------------------------
 -- Helpers
@@ -547,6 +548,8 @@ ns:RegisterModule({
     key   = "autoQuestModule",
     label = "Auto Quest",
     group = "Quests",
+    summary = "Accepts and hands in quests for you.",
+    icon    = "Interface\\Icons\\INV_Scroll_03",
     options = {
         { key = "autoQuest", label = "Accept quests", default = true,
           tooltip = "Accept quests from quest givers automatically." },

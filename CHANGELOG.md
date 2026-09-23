@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.3.0-forever
+
+- New settings window: sidebar with search, collapsible cards, tooltips instead of paragraphs. Class-specific options only show on classes they apply to.
+- New Swing Timer (Combat): main-hand swing bar for melee classes, under your portrait by default. Drag it with `/mm swing`; it snaps to the screen centre and lines up with your portrait.
+- New Fishing mode (Professions, beta): `/mm fish` or the MooseFish macro swaps in your pole and puts Fishing on button 1. Press 1 to cast and 1 again to catch. Toggle again to get your weapons back.
+- Quest Rewards: other choices are no longer dimmed; only the most valuable is highlighted.
+- New icons for every feature.
+
 ## 1.2.2-forever
 
 - Same code as 1.2.1, published on CurseForge as a Release rather than a Beta file.

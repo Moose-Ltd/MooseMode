@@ -25,6 +25,12 @@ New-Item -ItemType Directory -Force $stage | Out-Null
 try {
     Copy-Item -Recurse $addon (Join-Path $stage "MooseMode")
     Get-ChildItem -Recurse -Force (Join-Path $stage "MooseMode") -Include "*.bak", "Thumbs.db", ".DS_Store" | Remove-Item -Force
+    # Dev.lua marks a linked development install (written by install.ps1); never ship it.
+    $dev = Join-Path $stage "MooseMode\Dev.lua"
+    if (Test-Path $dev) { Remove-Item -Force $dev }
+    # MooseModeDev.toc belongs to the dev link (install.ps1); never ship it either.
+    $devToc = Join-Path $stage "MooseMode\MooseModeDev.toc"
+    if (Test-Path $devToc) { Remove-Item -Force $devToc }
     Compress-Archive -Path (Join-Path $stage "MooseMode") -DestinationPath $zip -CompressionLevel Optimal
 } finally {
     Remove-Item -Recurse -Force $stage

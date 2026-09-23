@@ -34,9 +34,9 @@ For contributors: [`CONTRIBUTING.md`](./CONTRIBUTING.md) · [`CHANGELOG.md`](./C
 - 💰 **Vendors** - Greys are sold the moment a vendor opens, gear is repaired, and chat tells you what it cost or earned.
 - 📜 **Quests** - Accept, hand in, and take the follow-up without clicking. Low-level quests are skipped, the best reward is framed in gold, and a note at the bottom of the window explains anything left for you.
 - 🎁 **Loot** - Everything is taken the instant loot is ready. Optionally leave the greys.
-- ⚔️ **Combat** - Pet-attack macros so a pet charges when a cast starts, and bar buttons that follow you to the highest spell rank.
+- ⚔️ **Combat** - A main-hand swing timer under your portrait for melee classes, pet-attack macros so a pet charges when a cast starts, and bar buttons that follow you to the highest spell rank.
 - 🎒 **Interface** - One combined bag with a one-click sort, clean icons without macro names, wider camera zoom, and the beta Issue Reporter tucked away.
-- ⚙️ **One dialog** - Grouped sections, sub-options, switches and tooltips. `/mm` or the minimap star opens it. Hold Shift at an NPC or vendor to skip automation once.
+- ⚙️ **One dialog** - A sidebar for Vendors, Quests, Loot, Combat and Interface, with search across every setting. Each feature is a collapsible card with its on/off switch in the header, and the finer settings open under a chevron. Help shows in tooltips. Options for other classes (pet macros, swing timer) stay out of the way unless you turn on Other classes. `/mm`, the minimap star, or Options > AddOns > MooseMode opens it. Hold Shift at an NPC or vendor to skip automation once.
 - 💾 **Beta-proof settings** - The beta client does not load saved variables yet, so settings are also backed up in an account macro and restored at login.
 
 ## Modules
@@ -46,11 +46,13 @@ For contributors: [`CONTRIBUTING.md`](./CONTRIBUTING.md) · [`CHANGELOG.md`](./C
 | Auto Sell     | Vendors   | Sells every grey item when a vendor opens, using the game's sell-all. Optional chat summary.                | on      |
 | Auto Repair   | Vendors   | Repairs all gear at repair vendors. Sub-options: guild funds when allowed, cost in chat.                     | on      |
 | Auto Quest    | Quests    | Accepts quests, hands in completed ones, picks up follow-ups, picks the only gossip option. Skips low-level quests (grey only, or green and grey). Debug log to chat. | on |
-| Quest Rewards | Quests    | Vendor value on each reward choice; the most valuable one gets a gold frame and pulse, the rest are dimmed. | on      |
+| Quest Rewards | Quests    | Vendor value on each reward choice; the most valuable one gets a gold frame and pulse. | on      |
 | Quest Lists   | Quests    | A line at the bottom of NPC quest windows names what Auto Quest left for you and why.                       | on      |
 | Fast Loot     | Loot      | Takes every slot the instant loot is ready. Sub-option: leave grey items. Takes over the game's auto-loot setting while on. | on |
-| Pet Attack    | Combat    | Creates one macro per damage spell with `/petattack` in front. Sub-option: only on pet classes.             | off     |
+| Fishing       | Professions | One toggle (`/mm fish`, the MooseFish macro, or a dialog button): pole in, Fishing on button 1. Press 1 to cast and press it again when the bobber splashes. Toggle again to get your weapons and button back. | on      |
+| Pet Attack    | Combat    | Creates one macro per damage spell with `/petattack` in front. Shown for Hunters and Warlocks; other classes see it (with an "only on pet classes" switch) under Other classes. | off     |
 | Spell Ranks   | Combat    | Swaps bar buttons holding an old rank for the highest one you know. Sub-option: report swaps in chat.       | on      |
+| Swing Timer   | Combat    | A main-hand swing bar under the player portrait, driven by the client's native swing event. It follows the player frame until you drag it. Handles haste changes, weapon swaps, parry haste, cast-time spells, and Heroic Strike or Cleave. Sub-option: show out of combat. On for Rogues, Warriors, Paladins, Shamans, and Druids in Cat or Bear Form; other classes can opt in. `/mm swing` moves it. | on |
 | One Bag       | Interface | Blizzard's combined bag window. Sub-option: sort on open. The sort always packs from the top.                         | on      |
 | Action Bars   | Interface | Hides macro names under action bar icons.                                                                   | on      |
 | Graphics      | Interface | Max camera zoom distance (on) and a vivid-colours contrast tick (off).                                       | mixed   |
@@ -72,7 +74,7 @@ flowchart TD
 
 - **`Core.lua`** - Loads first. Owns the module registry, applies option defaults into `MooseModeDB`, and calls each module's `OnInit` once settings exist.
 - **Settings** - Account-wide. Every write goes through the dialog controls and is mirrored into `MMcfg` account macros as a backup for the beta client.
-- **Options dialog** - Built lazily from the registry: five groups balanced across two columns, section headers, checkboxes, `parent` sub-options that grey out with their parent, segmented `choice` switches, `button` rows and `note` rows.
+- **Options dialog** - Built lazily from the registry. A fixed-size window with a sidebar (search, groups, Other classes switch) and a scrolling list of cards, one per module. A card header shows the icon, name, summary and master switch. The body holds the other options: switches, `parent` sub-options that indent and grey out with their parent, segmented `choice` switches and `button` rows. `note` rows and tooltips appear in hover tooltips beside the window. The dialog remembers which cards are open, the selected group and its position. Modules can add `summary`, `icon`, `classes`, `classesOverride`, `master`, `available` and `hidden` (see the comment block at the top of `Core.lua`). A small page on Blizzard's Options > AddOns tab opens the dialog.
 - **Minimap button** - A custom purple icon on the minimap ring. Left-click toggles the dialog, drag moves it, `/mm icon` nudges the icon.
 - **Slash commands** - `/mm`, `/moose` and `/moosemode` share one dispatcher; unknown words are routed to the module that registered them.
 - **Module contract** - One file, one `ns:RegisterModule({ key, label, group, options, commands, OnInit })`. Modules read `ns.db.<optionKey>` at runtime and never at load.
@@ -83,7 +85,7 @@ flowchart TD
 1. Install:
    - **CurseForge app** - pick the Forever flavour and search for MooseMode, or
    - **Manual** - copy the `MooseMode` folder into `World of Warcraft\_classic_beta_\Interface\AddOns\`, or
-   - **Development** - run `.\install.ps1` to link this repo's `MooseMode` folder into the game (`-Copy` to copy instead, `-Path` for another install).
+   - **Development** - run `.\install.ps1` to link this repo's `MooseMode` folder into the game as a separate addon, MooseMode Dev (`AddOns\MooseModeDev`), next to the CurseForge copy (`-Copy` to copy instead, `-Path` for another install). While MooseMode Dev is ticked, the CurseForge copy stays off; untick it to play the release. Re-run the script after editing `MooseMode.toc`.
 2. Start the game and tick MooseMode on the AddOns screen.
 3. Type `/mm` or `/moose`, or click the purple star on the minimap.
 
@@ -99,6 +101,9 @@ flowchart TD
 | `/mm repair`              | Repair at the vendor that is open                                   |
 | `/mm cleanup`, `/mm sort` | Run the game's bag sort                                             |
 | `/mm ranks`               | Swap bar buttons to the highest known spell rank now                |
+| `/mm fish`                | Toggle fishing mode (pole in, Fishing on button 1; press 1 again at the splash) |
+| `/mm fishmacro`           | Write or refresh the MooseFish macro                                |
+| `/mm swing`               | Unlock or lock the swing bar for moving (`test`, `reset`, `status`) |
 | `/mm petmacros`           | Regenerate the pet-attack macros                                    |
 | `/mm petmacro <spell>`    | Make or refresh one pet-attack macro                                |
 | `/mm questdebug`          | Toggle the Auto Quest decision log in chat                          |
@@ -107,7 +112,7 @@ flowchart TD
 ## Development
 
 ```powershell
-.\install.ps1                          # junction MooseMode/ into the beta AddOns folder; /reload in game after edits
+.\install.ps1                          # link MooseMode/ into the beta AddOns folder as MooseModeDev; /reload after edits
 .\package.ps1                          # build dist/MooseMode-<version>.zip for CurseForge
 node tools/make_icon.js                # regenerate media/icon.tga and the PNG previews
 node tools/make_icon.js --png out.png --size 512   # the icon at any size (avatars, listings)

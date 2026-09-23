@@ -19,6 +19,7 @@
 -------------------------------------------------------------------------------
 
 local ADDON, ns = ...
+if ns.disabled then return end   -- the other copy of MooseMode is running (see Core.lua)
 
 local POOR = (Enum and Enum.ItemQuality and Enum.ItemQuality.Poor) or 0
 
@@ -116,6 +117,8 @@ ns:RegisterModule({
     key   = "autoSellModule",
     label = "Auto Sell",
     group = "Vendors",
+    summary = "Sells your grey items the moment a vendor opens.",
+    icon    = "Interface\\Icons\\INV_Misc_Coin_02",
     options = {
         { key = "autoSell", label = "Sell grey items at vendors", default = true,
           tooltip = "Sells every grey item the moment a vendor opens, using the game's own sell-all." },

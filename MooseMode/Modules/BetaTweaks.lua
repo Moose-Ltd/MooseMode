@@ -24,6 +24,7 @@
 -------------------------------------------------------------------------------
 
 local ADDON, ns = ...
+if ns.disabled then return end   -- the other copy of MooseMode is running (see Core.lua)
 
 local hooked = false
 
@@ -103,6 +104,8 @@ ns:RegisterModule({
     key   = "betaTweaksModule",
     label = "Beta Client",
     group = "Interface",
+    summary = "Hides beta-client clutter.",
+    icon    = "Interface\\Icons\\Spell_Nature_InsectSwarm",
     options = {
         { key = "hideIssueReporter", label = "Hide Issue Reporter button", default = true,
           tooltip = "Hide the floating blue beetle the beta client puts on screen. Bug reports and surveys still work, and /ptr still opens the reporter.",

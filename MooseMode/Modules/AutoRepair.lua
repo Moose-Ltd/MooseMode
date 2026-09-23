@@ -14,6 +14,7 @@
 -------------------------------------------------------------------------------
 
 local ADDON, ns = ...
+if ns.disabled then return end   -- the other copy of MooseMode is running (see Core.lua)
 
 -------------------------------------------------------------------------------
 -- Helpers
@@ -101,6 +102,8 @@ ns:RegisterModule({
     key   = "autoRepairModule",
     label = "Auto Repair",
     group = "Vendors",
+    summary = "Repairs all your gear at any repair vendor.",
+    icon    = "Interface\\Icons\\Trade_BlackSmithing",
     options = {
         { key = "autoRepair", label = "Repair at vendors", default = true,
           tooltip = "Repair all your gear whenever a vendor that can repair opens." },

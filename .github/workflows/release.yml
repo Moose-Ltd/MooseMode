@@ -68,6 +68,7 @@ jobs:
           stage=$(mktemp -d)
           cp -r MooseMode "$stage/MooseMode"
           find "$stage/MooseMode" -name '*.bak' -delete
+          rm -f "$stage/MooseMode/Dev.lua" "$stage/MooseMode/MooseModeDev.toc"   # dev-only files, gitignored anyway
           mkdir -p dist
           (cd "$stage" && zip -r -X "$GITHUB_WORKSPACE/dist/MooseMode-$version.zip" MooseMode)
           unzip -l "dist/MooseMode-$version.zip"

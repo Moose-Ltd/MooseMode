@@ -17,6 +17,7 @@
 -------------------------------------------------------------------------------
 
 local ADDON, ns = ...
+if ns.disabled then return end   -- the other copy of MooseMode is running (see Core.lua)
 
 -- CVar access goes through ns.CVar (Core); previous values are remembered
 -- per option by ns.CVar.ApplyWithSnapshot and restored exactly on untick.
@@ -121,6 +122,8 @@ ns:RegisterModule({
     key   = "graphicsModule",
     label = "Graphics",
     group = "Interface",
+    summary = "Camera distance and colour tweaks.",
+    icon    = "Interface\\Icons\\Spell_Holy_MindVision",
     reinitSafe = true,   -- OnInit only migrates once and applies state from ns.db; safe to run again after a late restore
     options = {
         { key = "graphicsMaxCamera", label = "Max camera zoom distance", default = true,

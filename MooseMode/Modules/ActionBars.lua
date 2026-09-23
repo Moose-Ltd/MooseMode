@@ -16,6 +16,7 @@
 -------------------------------------------------------------------------------
 
 local ADDON, ns = ...
+if ns.disabled then return end   -- the other copy of MooseMode is running (see Core.lua)
 
 -- Bar button prefixes on the Retail-based client (8 bars x 12 buttons).
 local PREFIXES = {
@@ -74,6 +75,8 @@ ns:RegisterModule({
     key   = "actionBarsModule",
     label = "Action Bars",
     group = "Interface",
+    summary = "Cleaner bars without macro names.",
+    icon    = "Interface\\Icons\\Trade_Engineering",
     options = {
         { key = "hideMacroNames", label = "Hide macro names on bars", default = true,
           tooltip = "Show only the icon on action bar buttons that hold macros.",

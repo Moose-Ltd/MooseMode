@@ -30,6 +30,7 @@
 -------------------------------------------------------------------------------
 
 local ADDON, ns = ...
+if ns.disabled then return end   -- the other copy of MooseMode is running (see Core.lua)
 
 local GOLD = "|cffffd100"
 local GREY = "|cff808080"
@@ -354,6 +355,8 @@ ns:RegisterModule({
     key   = "questListsModule",
     label = "Quest Lists",
     group = "Quests",
+    summary = "Explains any quest Auto Quest left for you.",
+    icon    = "Interface\\Icons\\INV_Misc_Map_01",
     options = {
         { key = "questListSkipNote", label = "Show why a quest was skipped", default = true,
           tooltip = "A line at the bottom of NPC quest windows explains anything Auto Quest left for you.",

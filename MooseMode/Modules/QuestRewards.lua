@@ -2,7 +2,8 @@
 -- MooseMode -- QuestRewards
 --
 -- Prints each quest reward choice's vendor sell value on its button, frames
--- the most valuable one(s) in gold with a pulsing ring, and dims the rest.
+-- the most valuable one(s) in gold with a pulsing ring. The other choices
+-- are left as the game draws them.
 -- Works in the quest hand-in
 -- window (QUEST_COMPLETE) and in the quest log / map details, since Blizzard
 -- lays both out through the same code.
@@ -41,6 +42,7 @@
 -------------------------------------------------------------------------------
 
 local ADDON, ns = ...
+if ns.disabled then return end   -- the other copy of MooseMode is running (see Core.lua)
 
 local GOLD_R, GOLD_G, GOLD_B = 1, 0.82, 0
 
@@ -134,13 +136,11 @@ end
 
 -- Winner treatment: a bright gold frame around the whole button (icon and
 -- name plate), a pulsing ring on the icon, and bigger gold value text.
--- Losers are dimmed under a translucent black sheet so the best choice is
--- the only thing that reads at full brightness.
+-- The other choices keep their normal look.
 
 local WHITE = "Interface\\Buttons\\WHITE8X8"
 local FRAME_R, FRAME_G, FRAME_B = 1, 0.82, 0.1      -- outer 2px line
 local INNER_R, INNER_G, INNER_B = 0.72, 0.52, 0.02  -- 1px darker line inside it
-local DIM_ALPHA = 0.28
 
 -- Four edge textures forming a rectangle `thick` px wide, `inset` px inside
 -- the parent's edge (negative inset = outside).
@@ -234,23 +234,10 @@ local function EnsureOverlays(button)
         button.MooseFrame = f
     end
 
-    if not button.MooseDim then
-        local f = CreateFrame("Frame", nil, button)
-        f:SetAllPoints(button)
-        f:SetFrameLevel((button:GetFrameLevel() or 0) + 1)
-        f:EnableMouse(false)
-        local sheet = f:CreateTexture(nil, "OVERLAY", nil, 1)
-        sheet:SetTexture(WHITE)
-        sheet:SetVertexColor(0, 0, 0)
-        sheet:SetAlpha(DIM_ALPHA)
-        sheet:SetAllPoints(f)
-        f:Hide()
-        button.MooseDim = f
-    end
 end
 
--- Back to neutral: value text blank and small, nothing glowing, dimmed or
--- framed, pulse stopped.
+-- Back to neutral: value text blank and small, nothing glowing or framed,
+-- pulse stopped.
 local function ClearOverlays(button)
     if button.MooseValue then
         button.MooseValue:SetText("")
@@ -260,13 +247,11 @@ local function ClearOverlays(button)
     if button.MoosePulse then button.MoosePulse:Stop() end
     if button.MooseGlow then button.MooseGlow:Hide() end
     if button.MooseFrame then button.MooseFrame:Hide() end
-    if button.MooseDim then button.MooseDim:Hide() end
 end
 
 local function SetWinner(button)
     button.MooseValue:SetFontObject("GameFontNormal")
     button.MooseValue:SetTextColor(FRAME_R, FRAME_G, FRAME_B)
-    button.MooseDim:Hide()
     button.MooseFrame:Show()
     button.MooseGlow:Show()
     button.MoosePulse:Play()
@@ -276,7 +261,6 @@ local function SetLoser(button)
     button.MooseFrame:Hide()
     button.MooseGlow:Hide()
     button.MoosePulse:Stop()
-    button.MooseDim:Show()
 end
 
 -- Every button we have ever decorated, so a hide can reset them all even
@@ -412,8 +396,8 @@ local function UpdateRewards(trigger)
     end
 
     if HighlightEnabled() and #choices > 1 and best > 0 then
-        -- Winners get the full treatment; everything else is dimmed. Ties
-        -- all win, so nothing is dimmed when every choice matches.
+        -- Winners get the full treatment; the rest are left plain. Ties
+        -- all win, so nothing stands out when every choice matches.
         local winners = {}
         for i, c in ipairs(choices) do
             if values[i] == best then
@@ -524,12 +508,14 @@ ns:RegisterModule({
     key   = "questRewardsModule",
     label = "Quest Rewards",
     group = "Quests",
+    summary = "Shows what each reward choice sells for.",
+    icon    = "Interface\\Icons\\INV_Misc_Gem_Variety_01",
     options = {
         { key = "rewardValues", label = "Show vendor value on rewards", default = true,
           tooltip = "Prints each reward choice's sell price on its button.",
           onChange = function() ScheduleRerun("option") end },
         { key = "rewardHighlight", label = "Highlight the most valuable", default = true, parent = "rewardValues",
-          tooltip = "Gold frame and pulse on the reward that vendors for the most; the others are dimmed. Ties are all highlighted.",
+          tooltip = "Gold frame and pulse on the reward that vendors for the most. Ties are all highlighted.",
           onChange = function() ScheduleRerun("option") end },
     },
     commands = {

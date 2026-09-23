@@ -8,7 +8,7 @@ Short version of how this addon is built, checked and shipped. The
 ```powershell
 git clone https://github.com/Moose-Ltd/MooseMode.git
 cd MooseMode
-.\install.ps1          # junction MooseMode/ into the beta AddOns folder (-Path for another install)
+.\install.ps1          # link MooseMode/ into the beta AddOns folder as MooseModeDev (-Path for another install)
 ```
 
 Edit, then `/reload` in game. Turn on Lua errors while developing:

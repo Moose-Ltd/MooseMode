@@ -21,6 +21,7 @@
 -------------------------------------------------------------------------------
 
 local ADDON, ns = ...
+if ns.disabled then return end   -- the other copy of MooseMode is running (see Core.lua)
 
 local POOR      = (Enum and Enum.ItemQuality and Enum.ItemQuality.Poor) or 0
 local SLOT_ITEM = (Enum and Enum.LootSlotType and Enum.LootSlotType.Item) or 1
@@ -114,6 +115,8 @@ ns:RegisterModule({
     key   = "fastLootModule",
     label = "Fast Loot",
     group = "Loot",
+    summary = "Takes all loot instantly, no loot window.",
+    icon    = "Interface\\Icons\\INV_Box_02",
     reinitSafe = true,   -- OnInit only applies state from ns.db; safe to run again after a late restore
     options = {
         { key = "fastLoot", label = "Loot everything instantly", default = true,

@@ -18,6 +18,7 @@
 -------------------------------------------------------------------------------
 
 local ADDON, ns = ...
+if ns.disabled then return end   -- the other copy of MooseMode is running (see Core.lua)
 
 local DEBOUNCE      = 1.0    -- seconds after SPELLS_CHANGED before scanning
 local LOGIN_DELAY   = 3.0    -- seconds after PLAYER_LOGIN before the first scan
@@ -273,6 +274,8 @@ ns:RegisterModule({
     key   = "spellRanksModule",
     label = "Spell Ranks",
     group = "Combat",
+    summary = "Keeps your action bars on the highest spell rank.",
+    icon    = "Interface\\Icons\\Spell_Holy_MagicalSentry",
     options = {
         { key = "spellRanksUpgrade", label = "Keep bars on highest spell rank", default = true,
           tooltip = "When you learn a new rank, buttons holding the old rank are swapped for the new one. Runs out of combat.",

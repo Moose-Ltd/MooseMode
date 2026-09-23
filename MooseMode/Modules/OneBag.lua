@@ -21,6 +21,7 @@
 -------------------------------------------------------------------------------
 
 local ADDON, ns = ...
+if ns.disabled then return end   -- the other copy of MooseMode is running (see Core.lua)
 
 local CVAR = "combinedBags"
 local CLEANUP_DEBOUNCE = 10  -- seconds between automatic sorts
@@ -186,6 +187,8 @@ ns:RegisterModule({
     key   = "oneBagModule",
     label = "One Bag",
     group = "Interface",
+    summary = "All your bags in one combined window.",
+    icon    = "Interface\\Icons\\INV_Misc_Bag_EnchantedRunecloth",
     reinitSafe = true,   -- OnInit only applies state from ns.db; safe to run again after a late restore
     options = {
         { key = "oneBag", label = "Combine bags into one window", default = true,

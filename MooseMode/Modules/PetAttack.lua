@@ -25,6 +25,7 @@
 -------------------------------------------------------------------------------
 
 local ADDON, ns = ...
+if ns.disabled then return end   -- the other copy of MooseMode is running (see Core.lua)
 
 local MACRO_ICON      = "INV_MISC_QUESTIONMARK"
 local MACRO_NAME_MAX  = 16
@@ -285,6 +286,11 @@ ns:RegisterModule({
     key   = "petAttackModule",
     label = "Pet Attack",
     group = "Combat",
+    summary = "Macros that send your pet in as you cast.",
+    icon    = "Interface\\Icons\\Ability_Hunter_Pet_Wolf",
+    -- The dialog shows this card on pet classes only (or with "Other
+    -- classes" on); Generate() still checks the class itself.
+    classes = { "HUNTER", "WARLOCK" },
     options = {
         { key = "petAttackMacros", label = "Pet-attack macros for damage spells", default = false,
           tooltip = "Create a macro for each of your damage spells that sends your pet at the target before casting. Drag them onto your bars in place of the spells. Turning this off leaves the macros in place; delete them from the macro window if you no longer want them.",
@@ -292,7 +298,10 @@ ns:RegisterModule({
               if checked then Generate(false) end
           end },
         { key = "petAttackOnlyPetClasses", label = "Only on pet classes", default = true, parent = "petAttackMacros",
-          tooltip = "Only build the macros on Hunters and Warlocks." },
+          tooltip = "Only build the macros on Hunters and Warlocks. Turn off to build them on this character too.",
+          -- Always true on a pet class, so the dialog only offers it to the
+          -- other classes (visible with "Other classes" on).
+          hidden = function() return IsPetClass() end },
         { type = "note", text = "Creates one macro per damage spell with /petattack in front, so your pet charges the moment you cast. Drag the macros onto your bars in place of the spells. Re-run after learning new spells." },
     },
     commands = {
