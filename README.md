@@ -4,7 +4,7 @@
 
 **Quality of life for World of Warcraft: Forever, from one settings window.**
 
-[![Version](https://img.shields.io/badge/version-1.2.2--forever-b04cff?style=flat-square)](./MooseMode/MooseMode.toc)
+[![Version](https://img.shields.io/badge/version-1.4.0--forever-b04cff?style=flat-square)](./MooseMode/MooseMode.toc)
 [![Game](https://img.shields.io/badge/game-WoW%3A%20Forever%201.60.1-1f6feb?style=flat-square)](https://worldofwarcraft.blizzard.com)
 [![Interface](https://img.shields.io/badge/interface-16001-555?style=flat-square)](./MooseMode/MooseMode.toc)
 [![License](https://img.shields.io/badge/license-Proprietary-555?style=flat-square)](#license)
@@ -13,7 +13,7 @@
 <!-- Activates once the CurseForge listing is live. -->
 [![CurseForge](https://img.shields.io/badge/CurseForge-MooseMode-f16436?style=flat-square&logo=curseforge)](https://www.curseforge.com/wow/addons/moosemode)
 
-Sells greys, loots instantly, accepts and hands in quests, repairs, combines bags, and marks the best quest reward. Twelve small modules behind a purple star on the minimap, each one a tick you can turn off.
+Sells greys, loots instantly, accepts and hands in quests, repairs, combines bags, and shows what each quest reward sells for. Twenty-one small modules behind a purple star on the minimap, each one a tick you can turn off.
 
 <img src="docs/media/addon-settings.png" alt="The MooseMode settings dialog in game" width="640">
 
@@ -32,11 +32,11 @@ For contributors: [`CONTRIBUTING.md`](./CONTRIBUTING.md) · [`CHANGELOG.md`](./C
 ## Highlights
 
 - 💰 **Vendors** - Greys are sold the moment a vendor opens, gear is repaired, and chat tells you what it cost or earned.
-- 📜 **Quests** - Accept, hand in, and take the follow-up without clicking. Low-level quests are skipped, the best reward is framed in gold, and a note at the bottom of the window explains anything left for you.
+- 📜 **Quests** - Accept, hand in, and take the follow-up without clicking. Low-level quests are skipped, each reward shows its vendor value, and a note at the bottom of the window explains anything left for you.
 - 🎁 **Loot** - Everything is taken the instant loot is ready. Optionally leave the greys.
 - ⚔️ **Combat** - A main-hand swing timer under your portrait for melee classes, pet-attack macros so a pet charges when a cast starts, and bar buttons that follow you to the highest spell rank.
 - 🎒 **Interface** - One combined bag with a one-click sort, clean icons without macro names, wider camera zoom, and the beta Issue Reporter tucked away.
-- ⚙️ **One dialog** - A sidebar for Vendors, Quests, Loot, Combat and Interface, with search across every setting. Each feature is a collapsible card with its on/off switch in the header, and the finer settings open under a chevron. Help shows in tooltips. Options for other classes (pet macros, swing timer) stay out of the way unless you turn on Other classes. `/mm`, the minimap star, or Options > AddOns > MooseMode opens it. Hold Shift at an NPC or vendor to skip automation once.
+- ⚙️ **One dialog** - A sidebar for Vendors, Quests, Loot, Combat and Interface, with search across every setting. Each feature is a collapsible card with its on/off switch in the header, and the finer settings open under a chevron. Help shows in tooltips. Options for other classes (pet macros, swing timer) stay out of the way unless you turn on Other classes. `/mm`, the minimap star, or Options > AddOns > MooseMode opens it. A welcome setup on the first login offers Recommended or three quick choices; `/mm setup` brings it back. Hold Shift at an NPC or vendor to skip automation once.
 - 💾 **Beta-proof settings** - The beta client does not load saved variables yet, so settings are also backed up in an account macro and restored at login.
 
 ## Modules
@@ -71,7 +71,7 @@ For contributors: [`CONTRIBUTING.md`](./CONTRIBUTING.md) · [`CHANGELOG.md`](./C
 flowchart TD
   Game(["Game events<br/>MERCHANT_SHOW · LOOT_READY · QUEST_* · GOSSIP_SHOW · PLAYER_LOGIN"]) --> Modules
   Core["Core.lua<br/>module registry · MooseModeDB + MMcfg macro backup<br/>options dialog · minimap button · /mm /moose"]
-  Modules["Modules/*.lua<br/>15 feature modules"] -->|"ns:RegisterModule()"| Core
+  Modules["Modules/*.lua<br/>21 feature modules"] -->|"ns:RegisterModule()"| Core
   Core -->|"ns.db · ns.Print · ns.CVar · ns.SaveSettings"| Modules
   Modules --> API["C_* APIs<br/>C_Container · C_MerchantFrame · C_GossipInfo · C_QuestLog · C_Item · C_CVar"]
   Core --> SV[("SavedVariables<br/>MooseModeDB")]
@@ -116,6 +116,7 @@ flowchart TD
 | `/mm questdebug`          | Toggle the Auto Quest decision log in chat                          |
 | `/mm rewarddebug`         | Toggle the Quest Rewards discovery log in chat                      |
 | `/mm announcetest`        | Print sample quest announcements to your own chat                   |
+| `/mm setup`              | Run the welcome setup again                                         |
 
 ## Development
 
