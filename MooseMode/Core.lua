@@ -832,9 +832,20 @@ local function MinimapButton_UpdatePosition()
     if not minimapButton or not ns.db then return end
     local angle = math.rad(ns.db.minimap.angle or 220)
     local radius = (Minimap:GetWidth() / 2) + 5
+    local x, y = math.cos(angle), math.sin(angle)
+    -- A square minimap (the Minimap module sets GetMinimapShape): push the
+    -- button out to the square's edge instead of a circle.
+    if GetMinimapShape and GetMinimapShape() == "SQUARE" then
+        local r = math.sqrt(2) * radius
+        x = math.max(-radius, math.min(x * r, radius))
+        y = math.max(-radius, math.min(y * r, radius))
+    else
+        x, y = x * radius, y * radius
+    end
     minimapButton:ClearAllPoints()
-    minimapButton:SetPoint("CENTER", Minimap, "CENTER", math.cos(angle) * radius, math.sin(angle) * radius)
+    minimapButton:SetPoint("CENTER", Minimap, "CENTER", x, y)
 end
+ns.UpdateMinimapButtonPosition = MinimapButton_UpdatePosition
 
 local function MinimapButton_OnDragUpdate(self)
     local mx, my = Minimap:GetCenter()

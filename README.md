@@ -45,17 +45,24 @@ For contributors: [`CONTRIBUTING.md`](./CONTRIBUTING.md) · [`CHANGELOG.md`](./C
 | ------------- | --------- | ----------------------------------------------------------------------------------------------------------- | ------- |
 | Auto Sell     | Vendors   | Sells every grey item when a vendor opens, using the game's sell-all. Optional chat summary.                | on      |
 | Auto Repair   | Vendors   | Repairs all gear at repair vendors. Sub-options: guild funds when allowed, cost in chat.                     | on      |
-| Auto Quest    | Quests    | Accepts quests, hands in completed ones, picks up follow-ups, picks the only gossip option. Skips low-level quests (grey only, or green and grey). Debug log to chat. | on |
-| Quest Rewards | Quests    | Vendor value on each reward choice; the most valuable one gets a gold frame and pulse. | on      |
+| Auto Quest    | Quests    | Accepts quests, hands in completed ones, picks up follow-ups, picks the only gossip option, and can share accepted quests with your party. Skips low-level quests (grey only, or green and grey). Debug log to chat. | on |
+| Quest Rewards | Quests    | Vendor value on each reward choice.                                                    | on      |
 | Quest Lists   | Quests    | A line at the bottom of NPC quest windows names what Auto Quest left for you and why.                       | on      |
+| Quest Announce | Quests   | Questie-style group chat lines: finished objectives and quest-starting items (on); accepted, abandoned, turned in (off). Party, raid, both or off; optional copy in your own chat. | on |
 | Fast Loot     | Loot      | Takes every slot the instant loot is ready. Sub-option: leave grey items. Takes over the game's auto-loot setting while on. | on |
 | Fishing       | Professions | One toggle (`/mm fish`, the MooseFish macro, or a dialog button): pole in, Fishing on button 1. Press 1 to cast and press it again when the bobber splashes. Toggle again to get your weapons and button back. | on      |
 | Pet Attack    | Combat    | Creates one macro per damage spell with `/petattack` in front. Shown for Hunters and Warlocks; other classes see it (with an "only on pet classes" switch) under Other classes. | off     |
 | Spell Ranks   | Combat    | Swaps bar buttons holding an old rank for the highest one you know. Sub-option: report swaps in chat.       | on      |
 | Swing Timer   | Combat    | A main-hand swing bar under the player portrait, driven by the client's native swing event. It follows the player frame until you drag it. Handles haste changes, weapon swaps, parry haste, cast-time spells, and Heroic Strike or Cleave. Sub-option: show out of combat. On for Rogues, Warriors, Paladins, Shamans, and Druids in Cat or Bear Form; other classes can opt in. `/mm swing` moves it. | on |
+| Ground Marker | Combat    | Mouse 3 (or Mouse 4/5) drops a world marker at your cursor that your group sees; Ctrl+key clears. | off |
 | One Bag       | Interface | Blizzard's combined bag window. Sub-option: sort on open. The sort always packs from the top.                         | on      |
 | Action Bars   | Interface | Hides macro names under action bar icons.                                                                   | on      |
-| Graphics      | Interface | Max camera zoom distance (on) and a vivid-colours contrast tick (off).                                       | mixed   |
+| Graphics      | Interface | Max camera zoom distance (on) and a vivid-colours contrast tick (off). | mixed   |
+| Character Stats | Interface | A strip under the character window: weapon skills (yellow while below the cap), attack speed, energy or mana regen, and average item level. | on |
+| Item Level    | Interface | Quality-coloured item levels on each equipped slot of the character window and on weapons and armour in your bags and bank. | on |
+| Minimap       | Interface | Zooms back out 10/20/30 s after you zoom in; optional: fade addon buttons until you hover the map, square map with a purple border, hide the zoom buttons. | auto zoom on, rest off |
+| Map           | Interface | Coordinates bar, travel icons, and a waypoint arrow (Ctrl+click the map or `/way x y`; distance in yards; drag to move, right-click to lock). | on |
+| Map Reveal    | Interface | Shows the unexplored parts of every zone on the world map, with an optional faint purple tint. | on |
 | Beta Client   | Interface | Hides the beta Issue Reporter button.                                                                       | on      |
 
 ## Architecture
@@ -64,7 +71,7 @@ For contributors: [`CONTRIBUTING.md`](./CONTRIBUTING.md) · [`CHANGELOG.md`](./C
 flowchart TD
   Game(["Game events<br/>MERCHANT_SHOW · LOOT_READY · QUEST_* · GOSSIP_SHOW · PLAYER_LOGIN"]) --> Modules
   Core["Core.lua<br/>module registry · MooseModeDB + MMcfg macro backup<br/>options dialog · minimap button · /mm /moose"]
-  Modules["Modules/*.lua<br/>12 feature modules"] -->|"ns:RegisterModule()"| Core
+  Modules["Modules/*.lua<br/>15 feature modules"] -->|"ns:RegisterModule()"| Core
   Core -->|"ns.db · ns.Print · ns.CVar · ns.SaveSettings"| Modules
   Modules --> API["C_* APIs<br/>C_Container · C_MerchantFrame · C_GossipInfo · C_QuestLog · C_Item · C_CVar"]
   Core --> SV[("SavedVariables<br/>MooseModeDB")]
@@ -108,6 +115,7 @@ flowchart TD
 | `/mm petmacro <spell>`    | Make or refresh one pet-attack macro                                |
 | `/mm questdebug`          | Toggle the Auto Quest decision log in chat                          |
 | `/mm rewarddebug`         | Toggle the Quest Rewards discovery log in chat                      |
+| `/mm announcetest`        | Print sample quest announcements to your own chat                   |
 
 ## Development
 

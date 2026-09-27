@@ -7,7 +7,7 @@
 # CurseForge project id (the number on the project page). Once set, every
 # tagged release is uploaded to CurseForge by .github/workflows/release.yml.
 ## X-Curse-Project-ID: 1703988
-## Version: 1.3.0-forever
+## Version: 1.4.0-forever
 ## IconTexture: Interface\AddOns\MooseMode\media\icon.tga
 ## SavedVariables: MooseModeDB
 ## X-Flavor-Note: 16001 = WoW Forever (1.60.x, _classic_beta_). 120105 = Retail 12.1.5, which shares the same API.
@@ -21,9 +21,18 @@ Modules\SpellRanks.lua
 Modules\AutoQuest.lua
 Modules\QuestRewards.lua
 Modules\QuestLists.lua
+Modules\QuestAnnounce.lua
 Modules\AutoRepair.lua
 Modules\OneBag.lua
 Modules\Graphics.lua
+Modules\CharacterStats.lua
+Modules\ItemLevel.lua
+Modules\Minimap.lua
+Modules\Map.lua
+Modules\WaypointArrow.lua
+Modules\MapRevealData.lua
+Modules\MapReveal.lua
 Modules\BetaTweaks.lua
 Modules\SwingTimer.lua
+Modules\GroundMarker.lua
 Modules\Fishing.lua

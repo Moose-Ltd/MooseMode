@@ -541,6 +541,123 @@ frame:SetScript("OnEvent", function(self, event)
 end)
 
 -------------------------------------------------------------------------------
+-- Share quests with the party when you accept them
+-------------------------------------------------------------------------------
+
+-- Skipped when the quest cannot be shared, or everyone in the party already
+-- has it (so two players with this on do not bounce a quest back and forth).
+local function PartyNeedsQuest(questID)
+    if not (C_QuestLog and C_QuestLog.IsUnitOnQuest) then return true end
+    for i = 1, 4 do
+        local unit = "party" .. i
+        if UnitExists(unit) then
+            local ok, on = pcall(C_QuestLog.IsUnitOnQuest, unit, questID)
+            if not ok or not on then return true end
+        end
+    end
+    return false
+end
+
+local function ShareQuest(questID, always)
+    if not (always or (ns.db and ns.db.autoQuestShare)) or not IsInGroup() or IsInRaid() then return end
+    if not (QuestLogPushQuest and C_QuestLog and C_QuestLog.IsPushableQuest and C_QuestLog.GetLogIndexForQuestID) then return end
+    local okP, pushable = pcall(C_QuestLog.IsPushableQuest, questID)
+    if not okP or not pushable or not PartyNeedsQuest(questID) then return end
+    local okI, index = pcall(C_QuestLog.GetLogIndexForQuestID, questID)
+    if not okI or not index then return end
+    pcall(QuestLogPushQuest, index)
+    return true
+end
+
+-- "Share all" in the quest log: one quest every few seconds, because shares
+-- sent close together replace each other on the other players' screens.
+local SHARE_GAP = 2.5
+local sharing = false
+local shareButton
+
+local function ShareableQuests()
+    local list = {}
+    if not (C_QuestLog and C_QuestLog.GetNumQuestLogEntries and C_QuestLog.GetInfo and C_QuestLog.IsPushableQuest) then return list end
+    for i = 1, C_QuestLog.GetNumQuestLogEntries() do
+        local ok, info = pcall(C_QuestLog.GetInfo, i)
+        if ok and type(info) == "table" and not info.isHeader and info.questID then
+            local okP, pushable = pcall(C_QuestLog.IsPushableQuest, info.questID)
+            if okP and pushable and PartyNeedsQuest(info.questID) then list[#list + 1] = info.questID end
+        end
+    end
+    return list
+end
+
+local function ShareAll()
+    if sharing then return end
+    if not IsInGroup() or IsInRaid() then ns.Print("Join a party to share quests.") return end
+    local list = ShareableQuests()
+    if #list == 0 then ns.Print("No quests to share.") return end
+    sharing = true
+    ns.Print(("Sharing %d quest%s."):format(#list, #list == 1 and "" or "s"))
+    for i, questID in ipairs(list) do
+        C_Timer.After((i - 1) * SHARE_GAP, function()
+            ShareQuest(questID, true)
+            if i == #list then sharing = false end
+        end)
+    end
+end
+
+local function QuestLogOpen()
+    local q = _G.QuestMapFrame
+    if type(q) ~= "table" then return false end
+    local ok, visible = pcall(q.IsVisible, q)
+    return ok and visible and true or false
+end
+
+-- Our own button on UIParent, placed over the quest log's top-right corner
+-- while the quest log is open and you are in a party.
+local shareWatch = CreateFrame("Frame")
+local shareTick = 0
+shareWatch:SetScript("OnUpdate", function(_, elapsed)
+    shareTick = shareTick + (elapsed or 0)
+    if shareTick < 0.2 then return end
+    shareTick = 0
+    local want = ns.db and ns.db.autoQuestShareAll and QuestLogOpen() and IsInGroup() and not IsInRaid()
+    if not want then
+        if shareButton and shareButton:IsShown() then shareButton:Hide() end
+        return
+    end
+    if not shareButton then
+        shareButton = CreateFrame("Button", "MooseModeShareAllButton", UIParent, "UIPanelButtonTemplate")
+        shareButton:SetSize(80, 20)
+        shareButton:SetText("Share all")
+        shareButton:SetScript("OnClick", ShareAll)
+        shareButton:SetScript("OnEnter", function(self)
+            GameTooltip:SetOwner(self, "ANCHOR_TOP")
+            GameTooltip:AddLine("Share every quest your party doesn't have", 1, 1, 1)
+            GameTooltip:Show()
+        end)
+        shareButton:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    end
+    if not shareButton:IsShown() then
+        local q = _G.QuestMapFrame
+        shareButton:ClearAllPoints()
+        shareButton:SetPoint("TOPRIGHT", q, "TOPRIGHT", -8, -4)
+        local okS, strata = pcall(q.GetFrameStrata, q)
+        if okS and strata then shareButton:SetFrameStrata(strata) end
+        local okL, level = pcall(q.GetFrameLevel, q)
+        shareButton:SetFrameLevel(((okL and level) or 1) + 50)
+        shareButton:Show()
+    end
+    shareButton:SetEnabled(not sharing)
+end)
+
+local shareFrame = CreateFrame("Frame")
+ns.SafeRegisterEvent(shareFrame, "QUEST_ACCEPTED")
+shareFrame:SetScript("OnEvent", function(_, _, a, b)
+    -- Retail sends (questID); older clients send (logIndex, questID).
+    local questID = b or a
+    if type(questID) ~= "number" then return end
+    C_Timer.After(0.5, function() ShareQuest(questID) end)   -- once the quest log has it
+end)
+
+-------------------------------------------------------------------------------
 -- Register
 -------------------------------------------------------------------------------
 
@@ -560,6 +677,10 @@ ns:RegisterModule({
           tooltip = "Grey: only trivial quests. Green and grey: anything the game colours as easy." },
         { key = "autoQuestTurnIn", label = "Complete quest hand-ins", default = true, parent = "autoQuest",
           tooltip = "Hand in finished quests and pick up any follow-up. When there is a choice of rewards, the window stays open for you to pick." },
+        { key = "autoQuestShare", label = "Share quests with party", default = false,
+          tooltip = "Share each quest you accept with your party, unless they already have it." },
+        { key = "autoQuestShareAll", label = "Share all button in quest log", default = true,
+          tooltip = "Shows in a party; shares every quest your party doesn't have." },
         { key = "autoGossip", label = "Pick the only gossip option", default = true,
           tooltip = "When an NPC has exactly one gossip option and no quests, choose it for you. Menus with several options are left alone." },
         { key = "autoQuestDebug", label = "Debug log to chat", default = false, parent = "autoQuest",

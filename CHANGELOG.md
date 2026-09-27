@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.4.0-forever
+
+- New Quest Announce (Quests): Questie-style party chat lines for finished objectives and quest-starting items; accepted, abandoned and turned in are opt-in. `/mm announcetest` shows samples.
+- New Character Stats (Interface): a strip under the character window with your weapon skills, attack speed and energy or mana regen, in the stats pane's style.
+- New Item Level (Interface): quality-coloured item levels on your equipped slots and on gear in your bags and bank; Character Stats gains an average item level row.
+- New Minimap (Interface): auto zoom-out, plus optional fading addon buttons, a square map with a purple border, and hidden zoom buttons.
+- New Map (Interface): coordinates bar, travel icons, and a movable waypoint arrow for map pins and focused quests.
+- New Map Reveal (Interface): the world map shows the areas you have not explored yet, with an optional subtle purple tint.
+- Auto Quest: optional sharing of each quest you accept with your party, and a Share all button in the quest log.
+- New Ground Marker (Combat): one key drops a group-visible world marker at your cursor; Ctrl+key clears.
+- Swing Timer: casting out of combat (skinning, mining, herbs, eating) no longer restarts the bar.
+- Quest Rewards: the gold frame and pulse on the most valuable choice are gone; the sell values remain.
+
 ## 1.3.0-forever
 
 - New settings window: sidebar with search, collapsible cards, tooltips instead of paragraphs. Class-specific options only show on classes they apply to.

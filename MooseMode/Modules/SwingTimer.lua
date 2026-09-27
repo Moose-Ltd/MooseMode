@@ -245,6 +245,7 @@ end
 
 -- The cast landed: the swing starts over.
 local function RestartAfterCast()
+    if not (inCombat or autoAttacking) then return end   -- the fight ended during the cast
     local speed = Speed()
     if timer.endTime and speed then StartSwing(speed, Now()) end
 end
@@ -677,8 +678,10 @@ end
 local function OnSpellcast(event, unit, castGUID, spellID)
     if unit ~= "player" or not Active() then return end
     if event == "UNIT_SPELLCAST_START" then
-        -- Only a readable cast id can be matched to its end later.
-        if Opt("swingTimerCastReset") and Readable(castGUID) then PauseForCast(castGUID) end
+        -- Only a readable cast id can be matched to its end later. Casts count
+        -- only in a fight: skinning, mining, herbs, opening, eating and the
+        -- like after a kill must not start the bar again.
+        if Opt("swingTimerCastReset") and Readable(castGUID) and (inCombat or autoAttacking) then PauseForCast(castGUID) end
     elseif event == "UNIT_SPELLCAST_SUCCEEDED" then
         if casting and Readable(castGUID) and casting.guid == castGUID then
             casting = nil
