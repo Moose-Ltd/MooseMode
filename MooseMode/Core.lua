@@ -722,13 +722,6 @@ function ns.SaveSettings()
     SvSchedule()
 end
 
--- True once the saved settings are final for this session: either the
--- client loaded them, the backup was restored, or no backup exists. Until
--- then a missing value may still arrive from the late restore.
-function ns.SettingsSettled()
-    return (svRestored or svAbsentConfirmed) and true or false
-end
-
 -- Late restore: the saved table was empty at ADDON_LOADED and the macros were
 -- not readable yet. Re-apply defaults and refresh what is already built.
 local function SvLateRestore()
@@ -1343,32 +1336,6 @@ local function SetOption(opt, value)
     RunOnChange(opt, value)
     UpdateAll(true)
     Relayout()   -- hidden() functions may depend on the new value
-end
-
--- For code outside the dialog (the setup window): set one option by key,
--- save it, run the module's action, and refresh the dialog if it is built.
--- Returns false when no module owns the key.
-function ns.SetOptionByKey(key, value)
-    if not ns.db then return false end
-    local opt = optionByKey[key]
-    if not opt then
-        for _, mod in ipairs(ns.modules) do
-            for _, o in ipairs(mod.options) do
-                if o.key == key then opt = o break end
-            end
-            if opt then break end
-        end
-    end
-    if not opt then return false end
-    if ns.db[key] == value then return true end
-    ns.db[key] = value
-    ns.SaveSettings()
-    RunOnChange(opt, value)
-    if optionsFrame then
-        UpdateAll(true)
-        Relayout()
-    end
-    return true
 end
 
 local function ToggleOption(opt)
@@ -2461,15 +2428,6 @@ local function AddonVersion()
     return v and ("v" .. v) or ""
 end
 
--- Shared look for windows built outside this file (Setup.lua).
-ns.UI = {
-    C = C, LOGO_TEX = LOGO_TEX,
-    Solid = Solid, SolidC = SolidC, Color = Color, Text = Text, Wrap = Wrap,
-    Border = Border, SetBorderColor = SetBorderColor,
-    CreateFlatButton = CreateFlatButton, CreateTextButton = CreateTextButton,
-    CreateCloseButton = CreateCloseButton, AddonVersion = AddonVersion,
-}
-
 local function BuildTitleBar(f)
     local bar = CreateFrame("Frame", nil, f)
     bar:SetHeight(TITLE_H)
@@ -2741,11 +2699,6 @@ local function BuildOptionsDialog()
     ui.expandAll = CreateTextButton(content, "Expand all")
     ui.expandAll:SetPoint("RIGHT", ui.collapseAll, "LEFT", -6, 0)
     ui.expandAll:SetScript("OnClick", function() DropFocus(); SetAllExpanded(true) end)
-    if ns.OpenSetup then
-        ui.setup = CreateTextButton(content, "Setup")
-        ui.setup:SetPoint("RIGHT", ui.expandAll, "LEFT", -6, 0)
-        ui.setup:SetScript("OnClick", function() DropFocus(); f:Hide(); ns.OpenSetup() end)
-    end
 
     local viewH = height - 2 - TITLE_H - CONTENT_HEAD_H - PAD
     local scroll, child = CreateScrollArea(content, CONTENT_W, viewH)
@@ -2862,7 +2815,7 @@ end
 -------------------------------------------------------------------------------
 
 local function PrintHelp()
-    ns.Print("/mm or /moose  opens the options dialog.  /mm setup  runs the welcome setup.  /mm minimap  toggles the minimap button.  /mm icon <dx> <dy>  nudges the icon.")
+    ns.Print("/mm or /moose  opens the options dialog.  /mm minimap  toggles the minimap button.  /mm icon <dx> <dy>  nudges the icon.")
     for _, mod in ipairs(ns.modules) do
         local names = {}
         for sub in pairs(mod.commands) do names[#names + 1] = sub end
@@ -2887,9 +2840,6 @@ SlashCmdList.MOOSEMODE = function(msg)
         return
     elseif cmd == "minimap" then
         ns.ToggleMinimap()
-        return
-    elseif cmd == "setup" and ns.OpenSetup then
-        ns.OpenSetup()
         return
     elseif cmd == "icon" then
         ns.NudgeMinimapIcon(rest)

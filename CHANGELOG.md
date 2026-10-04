@@ -1,9 +1,5 @@
 # Changelog
 
-## Unreleased
-
-- New welcome setup: on the first login after install a small window offers Recommended, three quick choices (questing, chat, minimap), or Skip. Every choice applies at once. `/mm setup` or the Setup link in the settings window shows it again.
-
 ## 1.4.0-forever
 
 - New Quest Announce (Quests): Questie-style party chat lines for finished objectives and quest-starting items; accepted, abandoned and turned in are opt-in. `/mm announcetest` shows samples.
