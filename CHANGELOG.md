@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Auto Quest: removed the Share all button in the quest log. Sharing each quest as you accept it is unchanged.
+
 ## 1.4.0-forever
 
 - New Quest Announce (Quests): Questie-style party chat lines for finished objectives and quest-starting items; accepted, abandoned and turned in are opt-in. `/mm announcetest` shows samples.
