@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Auto Quest: removed the Share all button in the quest log. Sharing each quest as you accept it is unchanged.
+- One Bag: the reagent bag now opens and closes with the combined bag (B) and docks on top of it instead of sitting in its own column. New sub-option "Dock the reagent bag on top", on by default.
 
 ## 1.4.0-forever
 

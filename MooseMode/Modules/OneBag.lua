@@ -14,6 +14,7 @@
 -- Options (account-wide):
 --   oneBag             One bag: show all bags as a single window
 --   oneBagAutoCleanup  Auto cleanup when the bag opens (sub-option)
+--   oneBagDockReagent  Dock the reagent bag on top of the combined bag (sub-option)
 --   (the sort always packs from the top of the combined bag)
 --
 -- Commands:
@@ -161,13 +162,93 @@ local function ApplyPack()
 end
 
 -------------------------------------------------------------------------------
+-- Dock the reagent bag
+--
+-- Blizzard's combined bag leaves the reagent bag out, and
+-- UpdateContainerFrameAnchors (Mainline\ContainerFrame.lua) always starts a
+-- new column after the combined bag, so the reagent bag lands on its own to
+-- the left. A post-hook re-anchors it on top of the combined bag, right
+-- edges lined up, when it fits on screen; otherwise Blizzard's spot stays.
+--
+-- Bag frames hold secure item buttons, so they cannot be moved by addon code
+-- in combat: a layout during combat keeps Blizzard's spot and is redone when
+-- combat ends.
+-------------------------------------------------------------------------------
+
+local DOCK_GAP = 4
+local dockPending = false
+
+local function ReagentBagFrame()
+    if not ContainerFrameUtil_EnumerateContainerFrames or not ContainerFrame_IsReagentBag then return nil end
+    for _, f in ContainerFrameUtil_EnumerateContainerFrames() do
+        local ok, id = pcall(f.GetBagID, f)
+        if ok and id and not ns.IsSecret(id) and ContainerFrame_IsReagentBag(id) then return f end
+    end
+end
+
+local function DockReagentBag()
+    if not (ns.db and ns.db.oneBag and ns.db.oneBagDockReagent) then return end
+    local combined = ContainerFrameCombinedBags
+    if not combined or not combined:IsShown() then return end
+    local reagent = ReagentBagFrame()
+    if not reagent or not reagent:IsShown() then return end
+    if InCombatLockdown() then dockPending = true return end
+    local top = combined:GetTop()
+    local height = reagent:GetHeight()
+    local screenTop = UIParent:GetHeight() / (combined:GetScale() or 1)
+    if not top or not height or ns.IsSecret(top) or ns.IsSecret(height) then return end
+    if top + DOCK_GAP + height > screenTop then return end   -- no room above: keep Blizzard's column
+    reagent:ClearAllPoints()
+    reagent:SetPoint("BOTTOMRIGHT", combined, "TOPRIGHT", 0, DOCK_GAP)
+end
+
+if UpdateContainerFrameAnchors then
+    hooksecurefunc("UpdateContainerFrameAnchors", function() pcall(DockReagentBag) end)
+end
+
+-- B runs ToggleBackpack, which opens only the combined bag; the reagent bag
+-- comes with "Open All Bags" alone. With docking on, it opens and closes
+-- with the combined bag. Not in combat: opening or closing bag frames from
+-- addon code there is blocked (the reagent bag waits for Shift+B).
+local REAGENT_BAG = (Enum and Enum.BagIndex and Enum.BagIndex.ReagentBag) or 5
+local syncPending = false
+
+local function SyncReagentBag()
+    if not (ns.db and ns.db.oneBag and ns.db.oneBagDockReagent) then return end
+    if InCombatLockdown() then syncPending = true return end
+    local combined = ContainerFrameCombinedBags
+    if not combined or not IsBagOpen or not OpenBag or not CloseBag then return end
+    local okN, slots = pcall(C_Container.GetContainerNumSlots, REAGENT_BAG)
+    if not okN or ns.IsSecret(slots) or not slots or slots <= 0 then return end
+    local open = IsBagOpen(REAGENT_BAG) and true or false
+    if combined:IsShown() and not open then
+        pcall(OpenBag, REAGENT_BAG)
+    elseif not combined:IsShown() and open then
+        pcall(CloseBag, REAGENT_BAG)
+    end
+end
+
+local function HookReagentSync()
+    local combined = ContainerFrameCombinedBags
+    if not combined or combined.mmReagentHooked then return end
+    combined.mmReagentHooked = true
+    -- Next frame, so Blizzard finishes showing / hiding the combined bag first.
+    combined:HookScript("OnShow", function() C_Timer.After(0, SyncReagentBag) end)
+    combined:HookScript("OnHide", function() C_Timer.After(0, SyncReagentBag) end)
+end
+
+-------------------------------------------------------------------------------
 -- Events
 -------------------------------------------------------------------------------
 
 local frame = CreateFrame("Frame")
 frame:RegisterEvent("PLAYER_LOGIN")
+frame:RegisterEvent("PLAYER_REGEN_ENABLED")
 frame:SetScript("OnEvent", function(self, event)
-    if event == "PLAYER_LOGIN" then
+    if event == "PLAYER_REGEN_ENABLED" then
+        if dockPending then dockPending = false pcall(DockReagentBag) end
+        if syncPending then syncPending = false SyncReagentBag() end
+    elseif event == "PLAYER_LOGIN" then
         -- CVars are per character; the option is per account. While a late
         -- settings restore is still pending, ns.db holds defaults, so wait:
         -- Core re-runs OnInit (reinitSafe) once the real values land.
@@ -176,6 +257,7 @@ frame:SetScript("OnEvent", function(self, event)
             ApplyPack()
         end
         HookCombinedBags()
+        HookReagentSync()
     end
 end)
 
@@ -196,6 +278,9 @@ ns:RegisterModule({
           onChange = function(checked) ApplyOneBag(checked, true) end },
         { key = "oneBagAutoCleanup", label = "Sort bags on open", default = false, parent = "oneBag",
           tooltip = "Run the bag sort when the combined bag opens. Items pack from the top. At most once every 10 seconds, never in combat, never at a vendor or the bank." },
+        { key = "oneBagDockReagent", label = "Dock the reagent bag on top", default = true, parent = "oneBag",
+          tooltip = "The reagent bag opens and closes with the combined bag and sits right on top of it instead of in its own column. If there is no room above, or you open it in combat, it stays where the game puts it.",
+          onChange = function() RelayoutBags() end },
     },
     OnInit = function()
         local db = ns.db
@@ -207,6 +292,7 @@ ns:RegisterModule({
             ApplyOneBag(db.oneBag and true or false, false)
             ApplyPack()
             HookCombinedBags()
+            HookReagentSync()
         end
     end,
     commands = {
