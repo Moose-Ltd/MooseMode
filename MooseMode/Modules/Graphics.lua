@@ -10,6 +10,7 @@
 -- Options (account-wide):
 --   graphicsMaxCamera     Max camera zoom distance
 --   graphicsVivid         Vivid colours
+--   graphicsGroundClutter Max ground clutter density
 --
 -- An earlier version shipped an "ultra" graphics preset. It was removed; the
 -- one-time migration in OnInit puts back the snapshot that preset saved, so
@@ -61,6 +62,23 @@ local function ApplyVivid(enabled, announce)
 end
 
 -------------------------------------------------------------------------------
+-- Ground clutter
+-------------------------------------------------------------------------------
+
+-- 256 is the engine max, above what the settings slider offers.
+local CLUTTER_CVAR  = "groundEffectDensity"
+local CLUTTER_VALUE = "256"
+
+local function ApplyClutter(enabled, announce)
+    if not ns.db then return end
+    if not ns.CVar.Exists(CLUTTER_CVAR) then
+        if announce then ns.Print("This client has no '" .. CLUTTER_CVAR .. "' setting.") end
+        return
+    end
+    ns.CVar.ApplyWithSnapshot(CLUTTER_CVAR, CLUTTER_VALUE, "graphicsPrevClutter", enabled)
+end
+
+-------------------------------------------------------------------------------
 -- Migration: undo the removed ultra preset
 --
 -- The preset saved a snapshot of every CVar it changed in db.graphicsPrev.
@@ -102,6 +120,7 @@ local function ApplyAtLogin()
     if not db then return end
     ApplyCamera(db.graphicsMaxCamera and true or false, false)
     if db.graphicsVivid then ApplyVivid(true, false) end
+    if db.graphicsGroundClutter then ApplyClutter(true, false) end
 end
 
 local frame = CreateFrame("Frame")
@@ -122,7 +141,7 @@ ns:RegisterModule({
     key   = "graphicsModule",
     label = "Graphics",
     group = "Interface",
-    summary = "Camera distance and colour tweaks.",
+    summary = "Camera distance, colour and ground clutter tweaks.",
     icon    = "Interface\\Icons\\Spell_Holy_MindVision",
     reinitSafe = true,   -- OnInit only migrates once and applies state from ns.db; safe to run again after a late restore
     options = {
@@ -132,6 +151,9 @@ ns:RegisterModule({
         { key = "graphicsVivid", label = "Vivid colours", default = false,
           tooltip = "Sets contrast to 75. Untick to return to your previous value.",
           onChange = function(checked) ApplyVivid(checked, true) end },
+        { key = "graphicsGroundClutter", label = "Improved ground clutter", default = false,
+          tooltip = "Sets ground clutter density to 256, the maximum (more grass and foliage). Untick to return to your previous value.",
+          onChange = function(checked) ApplyClutter(checked, true) end },
     },
     OnInit = function()
         MigrateUltra()

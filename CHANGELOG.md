@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Auto Quest: removed the Share all button in the quest log. Sharing each quest as you accept it is unchanged.
+- Graphics: new "Improved ground clutter" option sets grass and foliage density to the maximum. Untick it to get your previous setting back.
 
 ## 1.4.0-forever
 
