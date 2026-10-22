@@ -3,7 +3,7 @@ name: Bug report
 about: Something in MooseMode does not do what it says
 title: ''
 labels: bug
-assignees: MooseFTW
+assignees: matthewjfberry
 
 ---
 
