@@ -3,7 +3,7 @@ name: Feature request
 about: Something MooseMode could take off your hands
 title: ''
 labels: enhancement
-assignees: MooseFTW
+assignees: matthewjfberry
 
 ---
 
